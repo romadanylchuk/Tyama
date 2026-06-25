@@ -1,0 +1,566 @@
+{
+  "project": "Tyama — Mental Math Fluency App",
+  "created": "2026-06-15",
+  "last_updated": "2026-06-24T17:10",
+  "nodes": [
+    {
+      "slug": "tech-stack",
+      "name": "Tech Stack & Platform",
+      "priority": "blocking",
+      "maturity": "ready",
+      "file": "ideas/tech-stack.md",
+      "summary": "DECIDED: RN/Expo MANAGED + prebuild (no bare — full native surface is plugin-reachable; first native module ends Expo Go → dev-build/$99 cost owned by local-persistence) and STRICT canonical-form matching with CAS (math.js/nerdamer) DROPPED — canonicalization is pedagogical (1/2 vs 0.5 = different skill atoms; accepting both blinds the diagnostic loop) and moves into the generator contract (new → task-generation edge). Decided not ready: catalog tooling (gated on tone R2, owned by i18n-strings) + SQLite-vs-MMKV (owned by local-persistence) stay open on their own clocks. Math display = react-native-mathjax-text-svg, no MathLive."
+    },
+    {
+      "slug": "skill-graph",
+      "name": "Skill Graph & Atom Catalog",
+      "priority": "blocking",
+      "maturity": "ready",
+      "file": "ideas/skill-graph.md",
+      "summary": "READY 2026-06-24 (engine): catalog-CONTENT thread EXTRACTED to new [[pedagogy-pass]] node (pedagogy-gate ruling) — content is data filling the locked schema via a config-as-data loadGraph() swap, not unresolved architecture, so the engine (mechanism + labelled smoke-test fixture) is ready; authored catalog is pedagogy-pass's deliverable, off critical path. Cluster A — graph DATA MODEL locked: human-readable slug IDs (immutable after release); config/state boundary (graph = bundled read-only asset, progress references node IDs only); semver graphVersion in-asset as the #15 migration key (resolves Q1), orthogonal to DB-schema version; static bundled asset behind an OTA-capable loadGraph() seam (no OTA machinery in MVP); minimal node schema {id, prerequisites, representationLevels, difficultyHooks} with prerequisite-only edges (NO progression/'next' edges). Cluster B — atom-catalog CONTENT explicitly DEFERRED to a dedicated pedagogy pass (4-layer draft = seed, not committed); a labelled fruit-equations smoke-test fixture unblocks the build. decided NOT ready: catalog content is the open pedagogy thread."
+    },
+    {
+      "slug": "task-generation",
+      "name": "Task Generation (Contract, Registry & Generators)",
+      "priority": "blocking",
+      "maturity": "ready",
+      "file": "ideas/task-generation.md",
+      "summary": "READY: procedural + backward-from-answer + single BUILD-TIME registry keyed to graph slugs. Contract generate(DifficultyParams)→{problem,solution,steps,representation,skillNode}; steps[] ordered/semantic with per-step {prompt,inputMode,expected(canonical),skillNode,elicitFromMastery}. Q5 DECIDED: generators STATIC, no OTA (answer-judging code must not bypass store review; graph stays OTA-capable — data vs code) → new requirement: registry must handle 'no generator for slug' without crash (coming-soon). MVP set = 4 contract validators: sticks/number-bonds, multiplication (speed), fruit-equations (tokens/pictorial→abstract), fraction-SIMPLIFICATION (multi-slot/canonical). Q2 (DifficultyParams universal vs per-generator) owned by difficulty-model."
+    },
+    {
+      "slug": "step-level-checking",
+      "name": "Step-level Checking",
+      "priority": "blocking",
+      "maturity": "ready",
+      "file": "ideas/step-level-checking.md",
+      "summary": "Single generic engine over the unified steps[]; first-break failedStep; strict canonical matching (no CAS); locale parsing delegated to locale-numeric-parsing."
+    },
+    {
+      "slug": "local-persistence",
+      "name": "Local Persistence",
+      "priority": "blocking",
+      "maturity": "ready",
+      "file": "ideas/local-persistence.md",
+      "summary": "READY: offline-first system of record. Truth-model = hybrid transactional dual-write (materialized = read-authority, durable event class = immutable history, atomic pairing via a single gate; firehose compaction-eligible). Engine DECIDED 2026-06-22 = expo-sqlite ONLY — truth-model's atomic gate forces SQLite (MMKV has no transactions); op-sqlite premature, WatermelonDB is a sync engine for a rejected multi-writer model; one engine/one version axis. Load-bearing clause: hot-state reads (persona/languages/current-node/settings) go through the SAME repository seam from day one (SQLite-backed table) so MMKV stays a zero-consumer-change swap. Node identity + migration + JSON export/import resolved; no open questions -> ready. Closes tech-stack's last open thread (native-module cost = the already-made prebuild call)."
+    },
+    {
+      "slug": "diagnostic-loop",
+      "name": "Diagnostic Loop / Routing",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/diagnostic-loop.md",
+      "summary": "READY/DECIDED: Q4 routing = mastery-gated BACKWARD traversal over the skill-graph, NO rules layer. Entry = single first-break failedStep.skillNode (step-level-checking); descend along prerequisites into unmastered atoms (masteryLevel<masteryThreshold), stop at DEEPEST unmastered prereq (route there) else symptom atom if all mastered; disambiguate >=2 unmastered prereqs by mastery RANK (lowest first), single gentle probe only on tie/no-data; pure graph+mastery traversal, never a parallel rules table (would fork the graph's prerequisite edges). 4 locked edge constraints: (1) STAGED descent presentation, never a teleport (anti-abyss); (2) read graded masteryLevel, descend toward weakest; (3) anti-loop short-horizon memory — on repeat break descend further or escalate to explanation-provider, never re-pin; (4) routing READS mastery, NEVER writes (boundary w/ mastery-gates + spaced-repetition band demotion)."
+    },
+    {
+      "slug": "mastery-gates",
+      "name": "Mastery Gates",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/mastery-gates.md",
+      "summary": "READY 2026-06-24: threshold-VALUES thread EXTRACTED to new [[pedagogy-pass]] node (pedagogy-gate ruling) — calibration data in difficultyHooks, not unresolved architecture; shipped defaults ARE the MVP spec, tuning is post-MVP refinement owned there, so mechanism + defaults make this ready. ONE graded `masteryLevel` scalar per (node, representationLevel) from accuracy+speed, measured ALONG the CPA trajectory (abstract automaticity = full scale; concrete=low, pictorial=mid). Single scalar, three projections: inter-node GATE high on it (abstract zone), scaffolding-fade cut-points lower (concrete=full rail / pictorial=key steps / abstract=finalOnly), gamification rings read same scalar — no independent progress signal (binary rejected: 3 disagreeing signals; abstract-only rejected: leaves early fade nothing to stand on). Window = rolling last-N WITHIN current representation level, then aggregated. Thresholds = config-as-data, per-node via difficultyHooks, speed PER-ATOM never global ms (Q6 resolved). NORTH-STAR: speed is an UP-FORCE — correct-but-slow holds at growing stage, never zeroes/blocks/evicts (median-time gate rejected = decay-in-costume amplifying the anxiety the product treats). Concretely defines spaced-repetition's promised speed-aware reviewOutcome. decided NOT ready: pedagogy-calibrated threshold VALUES deferred to the pedagogy pass (shipped defaults unblock build), parallel to skill-graph's catalog content."
+    },
+    {
+      "slug": "spaced-repetition",
+      "name": "Spaced Repetition",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/spaced-repetition.md",
+      "summary": "DECIDED: banded in-house intervals (not SM-2) via a pure scheduling fn (Seam A) over an opaque queue stored by local-persistence. reviewOutcome is speed-aware; one-band demote (not reset); band-shift held distinct from diagnostic-loop's un-mastering. Fields: intervalBandIndex + dueAt. Conflict resolved → ready."
+    },
+    {
+      "slug": "difficulty-model",
+      "name": "Difficulty Model",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/difficulty-model.md",
+      "summary": "READY 2026-06-24: band-VALUES thread EXTRACTED to new [[pedagogy-pass]] node (pedagogy-gate ruling). DifficultyParams = hybrid envelope: universal representationLevel + elicitFromMastery (projections of the masteryLevel scalar) over an OPAQUE per-generator numeric `params` payload; smooth progression = monotone coordinate → ordered config-as-data bands in difficultyHooks (generator instantiates mechanically, doesn't own the curve). Q2 resolved; task-generation's contract needs no rework. Mechanism/shape + shipped default bands make this ready; calibrated band values are pedagogy-pass's deliverable, off critical path. Owns entry difficulty (not theme, #12)."
+    },
+    {
+      "slug": "constrained-answer-entry",
+      "name": "Constrained Answer Entry / Input Modality",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/constrained-answer-entry.md",
+      "summary": "READY: per-step constrained widgets via a modality-keyed registry; never free-typed. Q10 RESOLVED. (1) Tokens strict-matching = consequence of dropped-CAS/strict-canonical: tokens is the trivial canonicalization case, no equivalence engine; multi-form stays per-generator normalization-policy opt-in. (2) MVP widget set = ALL FIVE (choice/number/tokens/manipulative/finalOnly), FORCED by the 4 generators + mastery-gates finalOnly, not breadth. (3) Registry contract (load-bearing): widget IN = prompt + modality-config, NEVER `expected` (no answer-judging in UI); widget OUT = structured { rawInput, inputStructure?, diagnosticPayload? } NOT a bare value (preserves divergence NATURE at the source for diagnostic-loop — choice distractor error-type, tokens divergence point); widget does NOT normalize — locale+canonical normalization stay entirely checker-side (step-level-checking pipeline). Rationale: lock the blind-widget + structured-output interface now; adding diagnosticPayload after 'widget→bare value' would re-bind all five widgets."
+    },
+    {
+      "slug": "gamification",
+      "name": "Gamification & Progress Visualization",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/gamification.md",
+      "summary": "Graded mastery rings (single masteryLevel scalar); anti-shame invariant (only gained/not-yet-gained); \"where to next\" = diagnostic-debt ?? capped-due-reviews ?? curated-entry-path (new data, never prereq edges)."
+    },
+    {
+      "slug": "explanation-provider",
+      "name": "ExplanationProvider",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/explanation-provider.md",
+      "summary": "Confirmed explain(context)->result seam; context carries contentLanguage+explanationLanguage; dedicated prompt-template asset; clipboard-only MVP; structured result reused by future ApiExplanationProvider."
+    },
+    {
+      "slug": "i18n-strings",
+      "name": "i18n / String Localization",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/i18n-strings.md",
+      "summary": "Language-neutral core; UI/content/explanation as 3 separate fields (confirmed). Catalog tooling = expo-localization + i18next, register via i18next `context` axis ((key,locale,register)). Register-completeness CI gate: build error on missing register variant for no-shame-critical strings (error/hint/lapse). Ukrainian default."
+    },
+    {
+      "slug": "locale-numeric-parsing",
+      "name": "Locale-aware Numeric Parsing (checker)",
+      "priority": "blocking",
+      "maturity": "ready",
+      "file": "ideas/locale-numeric-parsing.md",
+      "summary": "Explicit locale config table (not Intl/Hermes ICU) → canonical string for strict matching; parse failure = distinct ParseError, never a failedStep (no-shame); own test suite (UA/EN/EU + edge cases). Seam called by step-level-checking. Split from i18n-localization (blocking half)."
+    },
+    {
+      "slug": "presentation-theme",
+      "name": "Theme / Presentation & Onboarding",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/presentation-theme.md",
+      "summary": "READY: age-neutral core vs isolated skin; theme owns color/type/motion/register/flavor (not difficulty, #12). 4 decisions locked. D1 token system = HAND-ROLLED context-injected provider behind a thin seam (no library — `(key,locale,register)` 3-axis model fights `(token,theme)` libs; lib can slot under same seam later). D2 error-feedback = DERIVED from gamification's no-subtraction invariant: never 'wrong' (no red/✗/buzzer/shake), forward motion, `diagnosticPayload` personalizes hint-as-help not blame, soft timing in-spec. D3 persona = ENUM (adult-16+|kid|enthusiast) selecting a coherent bundle (not free selection); dark/light orthogonal/system-inherited; stored in local-persistence; changeable post-onboarding; change MUST NOT touch difficulty/progress (R1). D4 onboarding = separate flow orchestrating 3 owners (placement/i18n/persona), owns none; partially skippable — placement shortenable not nulled, skip starts low & calibrates up (north-star-bound). Unblocks i18n-strings (register lookup confirmed, theme holds no string copies)."
+    },
+    {
+      "slug": "activity-event-stream",
+      "name": "Activity-Event Stream (core substrate)",
+      "priority": "core",
+      "maturity": "ready",
+      "file": "ideas/activity-event-stream.md",
+      "summary": "Append-only activity log. DECIDED: two-class schema (durable/milestone = compaction-immune authoritative history; high-volume = compaction-eligible firehose) under a hybrid (not event-sourced) truth-model owned by local-persistence; consumers subscribe to the durable class. Social UI stays out of MVP."
+    },
+    {
+      "slug": "social-deferred",
+      "name": "Social (deferred)",
+      "priority": "deferred",
+      "maturity": "ready",
+      "file": "ideas/social-deferred.md",
+      "summary": "DECIDED: identity = single explicit local profile, stable opaque locally-generated userId, NO account-ready fields (account != identity; account-readiness = id-stability, not auth fields). Persist {userId} + locked sync-readiness fields; NO profiles[]/email/auth. Social UI out of MVP, default cooperative+opt-in (competition off), tied to shared no-shame invariant; future social = new consumer of activity-event-stream durable class, no core rewrite. READY."
+    },
+    {
+      "slug": "cosmetic-companion",
+      "name": "Cosmetic Companion",
+      "priority": "deferred",
+      "maturity": "decided",
+      "file": "ideas/cosmetic-companion.md",
+      "summary": "DECIDED (model locked, NOT ready). Two-layer positive-only companion (irreversible milestone stages + ephemeral stateless reactions; rejected cumulative=inert & streak-coupled=decay-in-costume/#2); cold-start Stage-0-complete-on-its-own (no empty vessel); present-by-default with dignity-of-exit (not opt-in), first greeting on first success event; pure consumer owning no state of record, derived stage = projection over the durable milestone-set. Each ruling is a direct consequence of the no-shame north star (#2). Milestone-compaction invariant + two-class event schema already absorbed by decided activity-event-stream / ready local-persistence — no cascade, stays off critical path. decided NOT ready: art pipeline (Rive/Lottie/sprites) + on-screen placement (gated on gamification layout) deliberately deferred as resourcing/downstream calls."
+    },
+    {
+      "slug": "pedagogy-pass",
+      "name": "Authored Graph Asset (Pedagogy Pass)",
+      "priority": "deferred",
+      "maturity": "decided",
+      "file": "ideas/pedagogy-pass.md",
+      "summary": "DECIDED 2026-06-24 (NOT ready — content is the open work). Single deferred artifact created by the pedagogy-gate ruling (option C): absorbs the three nodes' shared deferred-pedagogy thread — atom-catalog CONTENT (skill-graph) + mastery threshold VALUES (mastery-gates) + difficulty band VALUES (difficulty-model). Modelled as ONE node because all three co-serialize into ONE artifact (the bundled graph asset: atoms=nodes, thresholds+bands=difficultyHooks, CPA=representationLevels), authored by ONE owner, delivered as config-as-data via the locked loadGraph() seam — replacing the MVP defaults/fixture with NO code change. Rejected A (strict: conflates engine with data, violates #1 data/code boundary) and B (loosen in place: no single owner, finalize can't brief it). Unblocked skill-graph/mastery-gates/difficulty-model to ready. Off the critical path (no MVP node depends on its OUTPUT — only on the schema + shipped defaults)."
+    }
+  ],
+  "connections": [
+    {
+      "from": "tech-stack",
+      "to": "step-level-checking",
+      "type": "dependency",
+      "note": "REVISED (Q2): CAS dropped; instead imposes a strict normalization-policy obligation the checker applies to submitted input (lowest terms, fixed ordering, decimal policy)"
+    },
+    {
+      "from": "tech-stack",
+      "to": "task-generation",
+      "type": "dependency",
+      "note": "NEW (Q2): canonical-form / normalization policy is part of the generator contract, not just `solution` — strict matching replaces runtime equivalence"
+    },
+    {
+      "from": "tech-stack",
+      "to": "constrained-answer-entry",
+      "type": "dependency",
+      "note": "no-MathLive stance + widget/rendering libs set by the stack"
+    },
+    {
+      "from": "tech-stack",
+      "to": "i18n-strings",
+      "type": "dependency",
+      "note": "catalog tooling (expo-localization/i18next) chosen in the stack"
+    },
+    {
+      "from": "tech-stack",
+      "to": "locale-numeric-parsing",
+      "type": "dependency",
+      "note": "Intl formatting/parsing primitives set by the stack"
+    },
+    {
+      "from": "skill-graph",
+      "to": "task-generation",
+      "type": "dependency",
+      "note": "generators register against stable node IDs"
+    },
+    {
+      "from": "skill-graph",
+      "to": "diagnostic-loop",
+      "type": "dependency",
+      "note": "routing traverses the DAG prerequisite edges"
+    },
+    {
+      "from": "skill-graph",
+      "to": "gamification",
+      "type": "dependency",
+      "note": "the graph IS the visible mastery-ring surface"
+    },
+    {
+      "from": "local-persistence",
+      "to": "skill-graph",
+      "type": "dependency",
+      "note": "node identity + split/merge/deprecate migration (#15) constrains graph evolution"
+    },
+    {
+      "from": "local-persistence",
+      "to": "task-generation",
+      "type": "dependency",
+      "note": "stable node IDs to register generators against"
+    },
+    {
+      "from": "difficulty-model",
+      "to": "task-generation",
+      "type": "dependency",
+      "note": "DifficultyParams is the generator input"
+    },
+    {
+      "from": "task-generation",
+      "to": "step-level-checking",
+      "type": "dependency",
+      "note": "emits the ordered `steps` consumed by checking"
+    },
+    {
+      "from": "task-generation",
+      "to": "constrained-answer-entry",
+      "type": "dependency",
+      "note": "steps carry inputMode the widgets render"
+    },
+    {
+      "from": "step-level-checking",
+      "to": "diagnostic-loop",
+      "type": "dependency",
+      "note": "emits `failedStep`, the routing input"
+    },
+    {
+      "from": "step-level-checking",
+      "to": "explanation-provider",
+      "type": "dependency",
+      "note": "context = steps + failedStep"
+    },
+    {
+      "from": "locale-numeric-parsing",
+      "to": "step-level-checking",
+      "type": "dependency",
+      "note": "locale-aware decimal parsing — blocking checker correctness (fatal if wrong)"
+    },
+    {
+      "from": "locale-numeric-parsing",
+      "to": "task-generation",
+      "type": "shared-concern",
+      "note": "decimal-policy (decided 2026-06-18): generator's normalization policy must name a decimal-form term (leading/trailing zeros) applied to expected; same policy passed into normalize(). Locale folds separator, generator folds form — one canonical standard."
+    },
+    {
+      "from": "i18n-strings",
+      "to": "explanation-provider",
+      "type": "dependency",
+      "note": "supplies the `language` field in context"
+    },
+    {
+      "from": "diagnostic-loop",
+      "to": "difficulty-model",
+      "type": "dependency",
+      "note": "diagnostic placement sets entry difficulty (#12)"
+    },
+    {
+      "from": "diagnostic-loop",
+      "to": "spaced-repetition",
+      "type": "dependency",
+      "note": "failed reviews route back. SEAM (do not merge): diagnostic-loop owns un-mastering / prerequisite-routing / queue-eviction; the scheduler owns only local band-demotion within a node"
+    },
+    {
+      "from": "mastery-gates",
+      "to": "spaced-repetition",
+      "type": "dependency",
+      "note": "only mastered nodes enter the repetition queue"
+    },
+    {
+      "from": "mastery-gates",
+      "to": "difficulty-model",
+      "type": "dependency",
+      "note": "rising mastery fades scaffolding (elicitFromMastery)"
+    },
+    {
+      "from": "mastery-gates",
+      "to": "gamification",
+      "type": "dependency",
+      "note": "mastery state drives the rings"
+    },
+    {
+      "from": "local-persistence",
+      "to": "gamification",
+      "type": "dependency",
+      "note": "streak/XP persisted here"
+    },
+    {
+      "from": "local-persistence",
+      "to": "spaced-repetition",
+      "type": "dependency",
+      "note": "repetition queue stored here"
+    },
+    {
+      "from": "local-persistence",
+      "to": "mastery-gates",
+      "type": "dependency",
+      "note": "mastery state persisted here"
+    },
+    {
+      "from": "local-persistence",
+      "to": "social-deferred",
+      "type": "dependency",
+      "note": "user identity model persisted here"
+    },
+    {
+      "from": "presentation-theme",
+      "to": "i18n-strings",
+      "type": "dependency",
+      "note": "register set resolved before catalog tooling, or strings duplicate (#13)"
+    },
+    {
+      "from": "difficulty-model",
+      "to": "presentation-theme",
+      "type": "dependency",
+      "note": "entry point is a pedagogy output, not theme-owned (#12)"
+    },
+    {
+      "from": "activity-event-stream",
+      "to": "local-persistence",
+      "type": "dependency",
+      "note": "event schema (decide-early) decides storage shape"
+    },
+    {
+      "from": "activity-event-stream",
+      "to": "cosmetic-companion",
+      "type": "dependency",
+      "note": "companion is a pure consumer of the event stream"
+    },
+    {
+      "from": "activity-event-stream",
+      "to": "social-deferred",
+      "type": "dependency",
+      "note": "future social UI is a new consumer of events"
+    },
+    {
+      "from": "gamification",
+      "to": "cosmetic-companion",
+      "type": "dependency",
+      "note": "companion sits atop the motivation layer"
+    },
+    {
+      "from": "tech-stack",
+      "to": "local-persistence",
+      "type": "shared-concern",
+      "note": "Q1 consequence: the SQLite-vs-MMKV engine choice (open in local-persistence) is the trigger that adds a native module → ends Expo Go testing → forces a dev build + $99/EAS. Cost decision lives in local-persistence; named in tech-stack so it isn't a surprise."
+    },
+    {
+      "from": "step-level-checking",
+      "to": "locale-numeric-parsing",
+      "type": "shared-concern",
+      "note": "locale decimal separator ('3,5' vs '3.5') is checker correctness wearing an i18n hat"
+    },
+    {
+      "from": "step-level-checking",
+      "to": "constrained-answer-entry",
+      "type": "shared-concern",
+      "note": "RESOLVED 2026-06-18 /decide (constrained-answer-entry, Q10): tokens emits a canonical ordered sequence → checker strict-matches (no math.js/equivalence engine; multi-form = per-generator normalization-policy opt-in). Boundary locked: widget emits { rawInput, inputStructure?, diagnosticPayload? } and does NOT normalize; ALL normalization (locale→canonical) lives in the step-level-checking pipeline. Checker MAY read diagnosticPayload to enrich failedStep divergence nature."
+    },
+    {
+      "from": "difficulty-model",
+      "to": "mastery-gates",
+      "type": "shared-concern",
+      "note": "elicitFromMastery / scaffolding fade: authored by difficulty, triggered by mastery"
+    },
+    {
+      "from": "mastery-gates",
+      "to": "constrained-answer-entry",
+      "type": "shared-concern",
+      "note": "elicited step count rendered per mastery level"
+    },
+    {
+      "from": "local-persistence",
+      "to": "activity-event-stream",
+      "type": "shared-concern",
+      "note": "event-log shape (system-of-record vs side-log) is jointly owned"
+    },
+    {
+      "from": "i18n-strings",
+      "to": "presentation-theme",
+      "type": "shared-concern",
+      "note": "(key, locale, register) lookup: i18n holds strings, theme selects register"
+    },
+    {
+      "from": "i18n-strings",
+      "to": "locale-numeric-parsing",
+      "type": "shared-concern",
+      "note": "both key on the same active content-locale field; split lineage, separate clocks (core/non-blocking vs blocking/fatal-if-wrong)"
+    },
+    {
+      "from": "skill-graph",
+      "to": "gamification",
+      "type": "shared-concern",
+      "note": "same DAG surface: pedagogical substrate (data) vs visible motivation map (presentation)"
+    },
+    {
+      "from": "mastery-gates",
+      "to": "activity-event-stream",
+      "type": "shared-concern",
+      "note": "node-mastered / streak events are produced from mastery + gamification"
+    },
+    {
+      "from": "cosmetic-companion",
+      "to": "activity-event-stream",
+      "type": "shared-concern",
+      "note": "two-class event-schema split (compaction-eligible vs durable/milestone) + milestone-facts-must-be-compaction-immune invariant; decidable now, constrains both sides of the truth-model conflict without voting on it"
+    },
+    {
+      "from": "local-persistence",
+      "to": "local-persistence",
+      "type": "split",
+      "note": "storage-engine choice and node-identity/migration mapping (#15) can be decided on separate clocks"
+    },
+    {
+      "from": "activity-event-stream",
+      "to": "local-persistence",
+      "type": "resolved",
+      "note": "RESOLVED 2026-06-15 /decide: hybrid transactional dual-write (NOT event-sourced). Materialized progress = read-authority; durable/milestone event class = immutable compaction-immune history, paired atomically with milestone state via a single narrow gate; high-volume firehose written separately, compaction-eligible. Unblocked both nodes to decided."
+    },
+    {
+      "from": "spaced-repetition",
+      "to": "local-persistence",
+      "type": "resolved",
+      "note": "RESOLVED 2026-06-15 /decide: Seam A — persistence stores the queue as opaque materialized state (intervalBandIndex + dueAt); spaced-repetition owns the pure scheduling fn. Storage-vs-logic boundary settled; no change to the truth-model."
+    },
+    {
+      "from": "spaced-repetition",
+      "to": "mastery-gates",
+      "type": "shared-concern",
+      "note": "RESOLVED 2026-06-16 /decide (mastery-gates): speed is a first-class input to the graded masteryLevel scalar (an UP-FORCE, not a gate), so spaced-repetition's promised speed-aware reviewOutcome is now concretely defined — not boolean. Only nodes past masteryThreshold enter the queue. No change to spaced-repetition's locked decision."
+    },
+    {
+      "from": "pedagogy-pass",
+      "to": "skill-graph",
+      "type": "dependency",
+      "note": "DEFERRED CONTENT (created 2026-06-24 /decide): supplies the authored atom catalog (atoms-as-nodes + prerequisite edges + per-atom CPA representationLevels) that replaces the labelled smoke-test fixture via the loadGraph() seam. Config-as-data swap, no engine change. Off the critical path."
+    },
+    {
+      "from": "pedagogy-pass",
+      "to": "mastery-gates",
+      "type": "dependency",
+      "note": "DEFERRED CONTENT (created 2026-06-24 /decide): supplies the per-node masteryThreshold + per-atom speed VALUES in difficultyHooks, replacing shipped defaults. Config-as-data, off the critical path."
+    },
+    {
+      "from": "pedagogy-pass",
+      "to": "difficulty-model",
+      "type": "dependency",
+      "note": "DEFERRED CONTENT (created 2026-06-24 /decide): supplies the per-node ordered difficulty band VALUES in difficultyHooks, replacing shipped defaults. Config-as-data, off the critical path."
+    },
+    {
+      "from": "pedagogy-pass",
+      "to": "local-persistence",
+      "type": "shared-concern",
+      "note": "Created 2026-06-24 /decide: a re-authored asset bumps graphVersion, triggering the #15 split/merge/deprecate mastery-migration chain owned by local-persistence. No new requirement — the migration mechanism already anticipates content changes."
+    }
+  ],
+  "sessions": [
+    {
+      "date": "2026-06-15",
+      "skill": "new",
+      "summary": "Initial brainstorm from brief v0.3 — 16 idea nodes created (after merging CPA + scaffolding fade into Difficulty Model, math-rendering into Tech Stack, graph+atoms, and contract+generators)."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "triage",
+      "summary": "Triaged 3 raw-idea nodes (local-persistence, presentation-theme, cosmetic-companion). Author resolutions R1-R5 / decisions #12-16 applied: split out activity-event-stream node, promoted local-persistence to blocking, propagated entry-difficulty/register/node-identity resolutions to coupled nodes."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "map",
+      "summary": "First relationship map (connections array was empty). Recorded 30 dependency, 8 shared-concern, 2 split-signal, and 2 conflict edges. Key findings: local-persistence is a stealth blocking bottleneck (node identity #15 upstream of skill-graph + task-generation; event-log shape co-bound to activity-event-stream); the locale-decimal-parse concern behaves like an i18n->step-level-checking dependency, not catalog work (split flag); elicitFromMastery cross-cuts difficulty-model/mastery-gates/constrained-answer-entry; event-sourced-vs-materialized alignment between activity-event-stream and local-persistence must resolve before either reaches decided."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "explore",
+      "summary": "Explored cosmetic-companion (raw-idea -> explored), the last unexplored node. Settled a two-layer growth model (irreversible milestone stages + ephemeral stateless reactions; rejected pure-cumulative as inert and streak-coupled as decay-in-costume violating #2), a cold-start rule (Stage 0 complete-on-its-own, no empty-vessel/shame), and an introduction model (present-by-default + one-tap dignity-of-exit, not opt-in; first greeting fires on first success event, not launch). Seam refined: derived stage = projection over a durable milestone-set, not the raw log. Cross-node finding: rather than voting in the activity-event-stream <-> local-persistence truth-model conflict, the companion contributes an invariant (milestone-reached facts must be durable + compaction-immune) and surfaces a two-class event-schema split (compaction-eligible vs durable/milestone) that is decidable now without pre-judging the truth-model; added as a shared-concern edge and noted on activity-event-stream. Art pipeline (Lottie vs Rive) + placement remain deferred."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "decide",
+      "summary": "Resolved the activity-event-stream <-> local-persistence truth-model conflict: chose hybrid transactional dual-write (Option C) over pure event-sourcing (reconciliation benefit disabled offline/single-device, fights compaction, slow mobile fold) and pure side-log (silent drift breaks the consumer contract). Materialized progress = authoritative read/decision model; durable/milestone event class = immutable compaction-immune history, paired atomically with milestone state via a single narrow gate (enforced structurally, not by convention); high-volume firehose written separately and compaction-eligible. Locked the paired two-class event schema on activity-event-stream. Both nodes advanced explored -> decided (local-persistence is decided not ready: storage-engine SQLite/MMKV choice still open). Unblocks the graph bottleneck gating skill-graph + task-generation. Separate spaced-repetition queue storage-vs-logic conflict untouched."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "map",
+      "summary": "Executed the recorded i18n-localization split into two nodes on separate clocks: i18n-strings (core, non-blocking — catalogs, three language fields, register #13, no-pressure tone) and locale-numeric-parsing (blocking, fatal-if-wrong — locale-aware decimal-separator parsing/normalization in the checker, own test suite). Rewired all 6 edges (tech-stack now feeds both; locale-numeric-parsing blocks step-level-checking; i18n-strings blocks explanation-provider and shares the register lookup with presentation-theme), added a shared-concern edge between the two halves (same content-locale field), removed the executed split-signal edge, and archived i18n-localization.md. Node count 17 -> 18. Remaining open conflict: spaced-repetition <-> local-persistence queue ownership."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "decide",
+      "summary": "Resolved the last open conflict (spaced-repetition <-> local-persistence queue ownership) and both halves of Q8. Seam = Option A (pure-function scheduler over an opaque store: persistence stores queue rows, spaced-repetition owns a pure (queueItem, reviewOutcome) -> scheduling-fields fn) — the only option contradicting no locked decision, consistent with the generator/ExplanationProvider seams and the truth-model. Algorithm = banded in-house intervals, NOT SM-2 (SM-2 models binary recall with nowhere for Tyama's accuracy+speed). Two refinements locked: reviewOutcome is speed-aware not boolean (uses mastery-gates' speed threshold; added shared-concern edge); demote-on-lapse = one band not reset (north-star), and band-demotion held explicitly distinct from diagnostic-loop's un-mastering/queue-eviction (refined that edge note). Persisted fields: intervalBandIndex + dueAt (+lapses telemetry-only). spaced-repetition advanced explored -> ready (no open questions remain). Conflict edge -> resolved. No conflict edges remain in the graph."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "decide",
+      "summary": "Locked tech-stack (explored → decided). D1 = Expo MANAGED + prebuild, no bare — entire MVP native surface is plugin-reachable, so going bare is pre-insurance against a non-existent trigger; honest cost (first native module ends Expo Go → dev build + $99/EAS) is triggered by and owned by local-persistence's engine choice. D2 = strict canonical-form matching, CAS (math.js/nerdamer) DROPPED — not a bundle-size economy but a correctness decision: alternate written forms (1/2 vs 0.5, 2x vs x*2) are different skill atoms, so accepting them would blind the diagnostic loop; canonical/normalization policy moves into the generator contract (tokens widget makes output canonicalization trivial; rare multi-form acceptance stays a local per-generator opt-in). Scope call A: decided NOT ready — catalog tooling stays open (gated on tone-ownership R2 + mapping the register axis onto a (key,locale)-only tool; i18next not obviously correct; owned by i18n-strings) and SQLite-vs-MMKV stays open (owned by local-persistence); pinning either here would invert a dependency for a status badge. Added carry-forward pointer on the catalog-tooling note. Both decisions remove an MVP conditional rather than add insurance.",
+      "supersedes_note": "Formalizes the same-day explore session below."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "decide",
+      "summary": "Locked skill-graph in two clusters (explored → decided). Cluster A (graph DATA MODEL): A1 slug IDs over UUID — all three consumers (generator registration, diagnostic routing, the human-authored #15 migration table) want readable IDs; UUID's collision-free edge is moot for a single-author shipped asset; slugs immutable-after-release (rename = deprecate+add+map). A2 config/state boundary as cornerstone — graph = bundled read-only asset, progress references node IDs only (never copies a node); concrete realization of the two-version-axes rule. A3 resolves Q1: semver graphVersion carried IN the asset, orthogonal to the Option-C DB-schema version, used as the #15 split/merge/deprecate migration key (not a label). A4 static bundled asset behind a thin loadGraph()→GraphDefinition seam — OTA-capable later (Expo Updates) with no consumer rewrite, but no OTA machinery/asset-trust in MVP (same seam discipline as ExplanationProvider/scheduler). A5 minimal node schema {id, prerequisites, representationLevels, difficultyHooks}; edges stored on the consumer node as prerequisites (routing walks backward); HARD constraint: edges are prerequisite dependencies ONLY, never a 'next'/progression sequence (progression is a separate gamification/UI decision). Cluster B (atom-catalog CONTENT): lock mechanism, DEFER content — choosing which atoms in what prerequisite order is a pedagogical claim, not an engineering one (brief already flagged the draft 'to be agreed with pedagogy'); committing the 4-layer draft would silently ratify an unvalidated model. Defer to a dedicated pedagogy pass (draft = seed input, must deliver atoms-as-nodes + prerequisite edges + per-atom CPA levels). Blocks nobody — task-generation, diagnostic-loop, gamification depend on graph SHAPE not CONTENT; a labelled fruit-equations smoke-test fixture keeps the build moving. → decided NOT ready (catalog content is the open pedagogy thread, parallel to local-persistence's open storage-engine choice). Unblocks (on shape) the three downstream nodes that listed skill-graph as a dependency."
+    },
+    {
+      "date": "2026-06-15",
+      "skill": "explore",
+      "summary": "Explored tech-stack (stays explored; two directions signed off but left for /decide to formalize with rationale/alternatives). Q1: Expo MANAGED + prebuild, NOT bare — full MVP native surface (expo-sqlite/react-native-mmkv, expo-localization, expo-sharing+file-system, expo-clipboard, expo-linking, lottie, mathjax-text-svg) is plugin-reachable; committing recognizes the absence of a bare trigger rather than betting; honest cost = any native module ends Expo Go → dev build + $99/EAS, a consequence triggered by local-persistence's storage-engine choice (added tech-stack<->local-persistence shared-concern edge; cost decision stays there). Q2: strict canonical-form matching, CAS (math.js/nerdamer) DROPPED — backward generation already owns the canonical form, and the real reason is pedagogical: 1/2 vs 0.5 and 2x vs x*2 are DIFFERENT skills (own graph nodes), so accepting multiple forms would blind the diagnostic-loop the product exists to run. Canonical/normalization policy moves into the generator contract (added NEW tech-stack->task-generation dependency; revised tech-stack->step-level-checking note from 'equivalence libs' to 'normalization-policy obligation'); tokens widget makes output canonicalization trivial; future multi-form acceptance stays a local per-generator rule. Both decisions remove an MVP conditional rather than add insurance. SQLite-vs-MMKV handed back to local-persistence."
+    },
+    {
+      "date": "2026-06-16",
+      "skill": "decide",
+      "summary": "Locked constrained-answer-entry (explored → ready), closing Q10 — the node's only open question — in three linked rulings. (1) Tokens strict-matching is a CONSEQUENCE not a new decision: tech-stack already dropped CAS and step-level-checking locked strict canonical matching, and a constrained tile palette yields an ordered token sequence with no syntactic chaos, so canonicalization is trivial → strict-match canonical `expected`; no residual case needs semantic equivalence ('accept multiple forms' stays a per-generator normalization-policy opt-in, never an engine). (2) MVP widget set = ALL FIVE (choice/number/tokens/manipulative/finalOnly), FORCED by upstream not bloat — the four committed generators were chosen to stretch the modalities (sticks→manipulative/choice, multiplication→number, fruit-equations→tokens/number, fraction-simplification→manipulative+multi-slot) and finalOnly is required by mastery-gates' abstract stage; cutting one orphans a generator or breaks scaffolding-fade. (3) Registry contract (the load-bearing decision): widget INPUT = `prompt` + modality-specific config derived from the step (choice option-set+distractors / tokens tile-palette / manipulative visual), and the widget NEVER receives `expected` (no answer-judging leaks into the UI — widget emits input, never a verdict); widget OUTPUT = STRUCTURED { rawInput, inputStructure?, diagnosticPayload? }, NOT a bare normalized value, so the NATURE of a divergence (which distractor — sign-flip? off-by-one? — or where a token sequence diverged) is preserved at the source for the diagnostic loop; the widget does NOT normalize — both locale and canonical normalization stay entirely in the step-level-checking pipeline (locale→canonical→compare) to avoid double-normalization. Rationale: the interface shape is the expensive, hard-to-reverse part, so two invariants are fixed up front — the widget is BLIND (never sees `expected`, never normalizes) and its output is STRUCTURED (optional diagnosticPayload is cheap now, but adding it after locking 'widget→bare value' would break and re-bind all five widgets; same failure class as failedStep carrying divergence nature, caught one step earlier at the source). No open questions remain → ready. No edges cascade-broken; the step-level-checking shared-concern (Q10 tokens equivalence) collapses to 'strict-match a canonical token sequence' and is annotated resolved."
+    },
+    {
+      "date": "2026-06-22",
+      "skill": "decide",
+      "summary": "Locked presentation-theme (explored → ready), resolving all four open decisions (the pre-locked R1/#12 axis-scope and R2/#13 register model were inputs, not re-decided). D1 token system = HAND-ROLLED context-injected provider behind a thin seam, NO token library — a lib solves a broader problem than needed and thinks in (token,theme), so the locked non-standard 3-axis (key,locale,register) model would fight it; same narrower-than-the-library logic that dropped MathLive and CAS; seam keeps a library slot-in-able later if styling complexity explodes (ExplanationProvider/loadGraph discipline). D2 error-feedback visual language = DERIVED from gamification's no-subtraction invariant, not a fresh philosophy — never rendered 'wrong' (no red/buzzer/✗/shake), calm 'not yet, try it this way' + FORWARD motion, the structured diagnosticPayload/failedStep personalizes the hint AS HELP (never blame; same payload feeds routing invisibly + hint visibly), and SOFT TIMING (a beat + smooth transition, no hard flash) is part of the spec — 'let's look' vs 'caught'. D3 persona = ENUM (adult-16+|kid|enthusiast) selecting a COHERENT bundle (color+type+motion+register+flavor together), not free theme selection (which yields incoherent combos and defeats the seam); dark/light is ORTHOGONAL/system-inherited (not a persona, not conflated with it); stored in local-persistence as materialized state; changeable post-onboarding (dignity-of-exit); HARD R1/#12 consequence — a persona change MUST NOT touch difficulty/progress (persona owns no difficulty). D4 onboarding = a SEPARATE flow orchestrating three existing owners (diagnostic placement→pedagogy, three language fields→i18n, persona→theme) and owning NONE; PARTIALLY skippable — persona/language skip to defaults cleanly, but diagnostic placement may be SHORTENED not NULLED (nulling defaults entry difficulty → anxious learner starts too high=frustration or too low=condescension); if skipped, start conservatively low and calibrate upward fast (low-and-rising is non-shaming, high-and-failing is shaming) — skip policy itself subordinate to the north star. Cascade: UNBLOCKS i18n-strings (still explored) — register set {neutral,warm,playful} final, theme passes register into the (key,locale,register) lookup and holds NO string copies, so catalog tooling can be chosen against a fixed key with no per-theme duplication risk. Minor: local-persistence gains a small materialized persona-enum + dark/light field (no new event class); gamification's invariant is now also the SOURCE of D2 (must not diverge). No edges cascade-broken."
+    },
+    {
+      "date": "2026-06-16",
+      "skill": "decide",
+      "summary": "Locked mastery-gates (explored → decided). #2 graded scalar: ONE masteryLevel per (node, representationLevel) from accuracy+speed; inter-node gate, scaffolding-fade cut-points, and gamification rings are all projections of the SAME scalar (binary rejected — forces three independent 'how far along' signals that disagree, violating the single-truth discipline). #1 measured ALONG the CPA trajectory (abstract automaticity = full scale; concrete=low-but-nonzero, pictorial=mid) so the scalar takes representation level as an INPUT — abstract-only rejected because it leaves early-stage scaffolding-fade nothing to stand on exactly when a novice needs the rail; window = rolling last-N WITHIN current representation level, then aggregated (no mixing concrete+abstract). #3 (Q6) thresholds = config-as-data: global default overridable per-node via graph difficultyHooks, calibrated by the deferred pedagogy pass with shipped defaults; speed threshold PER-ATOM never global ms. NORTH-STAR guardrail (not in original breakdown): speed is an UP-FORCE that RAISES masteryLevel but correct-but-slow NEVER zeroes/blocks/evicts — holds at growing stage with continued repetition; a median-time hard gate rejected as decay-in-costume that blocks a panicking-but-knowing learner and amplifies the exact anxiety the product treats. Consequence: spaced-repetition's already-promised speed-aware reviewOutcome is now concretely defined (speed = first-class masteryLevel input, not boolean); only nodes past masteryThreshold enter the queue; refined the spaced-repetition<->mastery-gates edge to resolved-shared-concern. → decided NOT ready: pedagogy-calibrated threshold VALUES deferred (shipped defaults unblock build), parallel to skill-graph's deferred catalog content. No edges cascade-broken."
+    },
+    {
+      "date": "2026-06-22",
+      "skill": "decide",
+      "summary": "Locked i18n-strings (explored -> ready). A: three-field language model (UI/content/explanation as separate fields, MVP-bound to one selection) CONFIRMED — decoupling cheap now, merging expensive later; explanation-language is exactly what explanation-provider consumes. B: catalog tooling = expo-localization + i18next, with register mapped onto i18next's native `context` axis (t(key,{context:register}) -> key_warm, _neutral as fallback) — one catalog, register as suffix, theme supplies only the value (satisfies R2 no-per-theme-duplication). B3 hand-rolled rejected (re-implements plurals/interpolation/locale-load; the asymmetry that fit theme tokens fails for rich strings); B2 namespaces rejected (triples catalogs, loses fallback). tech-stack's 'do not default to vanilla i18next' warning SATISFIED not bypassed — arrived at i18next THROUGH the register-mapping resolution. Required refinement = register-completeness gate by criticality: silent fallback-to-neutral allowed for ordinary strings but a CI BUILD ERROR for no-shame-critical strings (error-feedback/hints/lapse/streak-miss) where all 3 register variants are required — closes the silent-misbehaviour failure mode (a missing warm/playful variant degrades tone unnoticed for anxious users, same class as locale mis-parse). New build obligation: per-key criticality tag + lint/CI completeness check. Cascade: explanation-provider's language-field dependency now resolved on this end (still explored on its own merits); presentation-theme confirmed as register-value supplier; locale-numeric-parsing unaffected. No edges cascade-broken."
+    },
+    {
+      "date": "2026-06-22",
+      "skill": "decide",
+      "summary": "Locked local-persistence storage engine (decided -> ready), closing the node's last open question. Chose expo-sqlite ONLY over three alternatives, each disqualified by construction not taste: MMKV/hybrid — MMKV is a synchronous KV store with NO transactions, so it physically cannot hold the atomic milestone-state<->durable-event gate that keeps the locked Option-C truth-model from decaying into the rejected Option B; it could only ever back hot-settings, buying a second engine + second version axis for a non-critical read a SQLite table already serves. op-sqlite — faster JSI SQLite, same guarantees, but perf isn't an MVP constraint and it trades the Expo-blessed module for a community one (native-surface risk) for unneeded speed; premature. WatermelonDB — an ORM + SYNC engine built for the multi-writer model Option C explicitly rejected; paying full price for a disabled benefit, same error as CAS/event-sourcing. The truth-model already forced SQLite, so the only live question was WHICH SQLite; expo-sqlite wins on four axes at once (atomic gate built in; queryable access pattern of event-log + dueAt-ordered queue + per-node mastery history; zero native surface beyond the committed prebuild; one version axis). LOAD-BEARING CLAUSE added (or 'MMKV later' is an empty promise): all hot-state reads (persona enum, UI/content/explanation languages, current node, settings) route through the SAME repository seam (settings.get/set-style) from the first commit, MVP-backed by a small SQLite table — a future MMKV swap is then one implementation behind the interface with zero consumer changes; the loadGraph/ExplanationProvider/scheduler seam discipline is explicitly extended to hot-settings so the hot path isn't the one place left unseamed. New build obligation: hot-state repository seam from day one, no raw-SQL hot reads in UI/consumer code. CASCADE: closes tech-stack's last open thread — the native-module cost trigger ($99/EAS, ends Expo Go) is bound to the already-made prebuild decision, so expo-sqlite activates nothing new; with its other thread (catalog tooling) resolved by i18n-strings the same day, tech-stack now has no open threads and is eligible to advance decided -> ready. No edges cascade-broken."
+    },
+    {
+      "date": "2026-06-23",
+      "skill": "decide",
+      "summary": "Locked cosmetic-companion MODEL (explored -> decided, NOT ready). Formalized the exploration design with rationale + rejected-alternatives rather than reopening it: (1) two-layer behaviour = irreversible milestone stages + ephemeral stateless per-success reactions (rejected pure-cumulative as inert and streak-coupled as decay-in-costume violating no-shame #2); (2) cold-start = Stage 0 complete-on-its-own, milestones add not fix (rejected empty-vessel as hidden shame); (3) introduction = present-by-default not opt-in (a toggle ~95% never find = art nobody sees), dignity-of-exit answers the 16+ 'infantile' concern instead of consent-gating, first greeting on first SUCCESS event not launch; (4) seam = pure consumer owning no state of record, derived stage = projection over the DURABLE milestone-set not the compaction-eligible raw log. Each ruling is a direct consequence of the no-shame north star (#2), so locking now is cheap insurance against a future inactivity-reaction regression. DEFERRED BY NATURE (keeps node decided, not ready): art/animation pipeline (Rive/Lottie/sprites — lottie already in tech-stack) is the real resourcing driver of fast-follow status; on-screen placement is gated on gamification's still-settling skill-map layout (the motivational core the companion must never compete with) — same separate-clocks discipline as skill-graph catalog content / local-persistence engine choice. NO CASCADE: the milestone-facts-must-be-compaction-immune invariant + two-class event schema this node contributed were already absorbed when activity-event-stream reached decided and local-persistence reached ready; the locked seam is satisfied by the existing durable/milestone event class, nothing new required. Node stays off the critical path (no MVP node depends on it)."
+    },
+    {
+      "date": "2026-06-24",
+      "skill": "decide",
+      "summary": "Resolved the structural 'pedagogy-gate' question and created a new node (pedagogy-pass). Three nodes were stuck at decided-not-ready on what looked like a shared 'deferred pedagogy pass' — but the threads differ (skill-graph defers atom-catalog CONTENT; mastery-gates + difficulty-model defer numeric VALUES) AND all three co-serialize into ONE artifact (the bundled graph asset: atoms=nodes, thresholds+bands=difficultyHooks, CPA=representationLevels). Chose option C — EXTRACT the shared content/calibration thread into one new deferred-priority node 'Authored Graph Asset (Pedagogy Pass)' that owns it as a config-as-data deliverable behind the locked loadGraph() seam — over A (strict: keep all three at decided; rejected as conflating the engine with its data, violating the #1 data/code boundary that the whole project rests on — by that logic local-persistence couldn't be ready without the user's actual data) and B (loosen ready in place; rejected: scatters the debt with no single owner and no node finalize can brief). Consequence: skill-graph (blocking), mastery-gates, difficulty-model all advanced decided -> ready on mechanism + MVP fixture/defaults; pedagogy-pass holds the content debt, decided-not-ready, off the critical path. Judgment accepted on the one real call: a blocking node (skill-graph) ships its ENGINE against a labelled smoke-test fixture with the authored catalog tracked downstream. Node count 18 -> 19. Added 4 edges (pedagogy-pass -> the three nodes as deferred-content dependencies + a shared-concern with local-persistence on the graphVersion #15 migration). activity-event-stream + cosmetic-companion untouched (decided-not-ready for unrelated substrate/resourcing reasons)."
+    },
+    {
+      "date": "2026-06-24",
+      "skill": "finalize",
+      "summary": "Converted the decided architecture into the implementation handoff. Gate check: 5 of 6 blocking nodes were ready; tech-stack alone sat at 'decided' — a bookkeeping gap, not an open blocker (its only two threads, catalog tooling and storage engine, were both closed elsewhere on 2026-06-22, and that session already noted it eligible for ready). activity-event-stream (core) was likewise substantively ready (two-class schema + truth-model fully locked) but never bumped. With user confirmation at the gate, advanced BOTH decided -> ready (index.json + node files + history lines). Deferred-node review: user kept pedagogy-pass, cosmetic-companion, social-deferred out of MVP scope. Grouped the 16 ready MVP nodes into 7 implementation stages (confirmed by user before briefing): 01 Foundation & Persistence (tech-stack/local-persistence/activity-event-stream), 02 Graph Engine & Generation Core (skill-graph/task-generation/difficulty-model, one generator end-to-end on a labelled fixture), 03 Answer Pipeline (constrained-answer-entry/locale-numeric-parsing/step-level-checking), 04 Diagnostic Loop & Mastery (diagnostic-loop/mastery-gates), 05 Spaced Repetition & full generator content (spaced-repetition + remaining 3 generators), 06 Motivation/Explanation/Presentation Shell (gamification/explanation-provider/i18n-strings/presentation-theme), 07 Onboarding & Polish (cross-cutting, realizes presentation-theme D4 + brief §14 phase 5). Wrote 7 feature briefs to .ai-arch/feature-briefs/ and the master todo-list.md (dependency DAG: critical path 01->02->03->04->05->07, with 06 parallelizable after 04). Cross-stage flags captured: the one canonical-number standard load-bearing across 02<->03, the anti-shame invariant as a repo-wide constraint, seam discipline, two version axes, and the config-as-data/shipped-defaults pattern that keeps pedagogy-pass off the critical path."
+    }
+  ]
+}
