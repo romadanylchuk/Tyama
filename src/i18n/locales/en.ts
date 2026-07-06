@@ -314,8 +314,6 @@ const en: CatalogResource = {
   'widget.confirm': 'Confirm',
   'widget.backspace': 'Backspace',
   'widget.number.final_only': 'Enter your answer',
-  'widget.manipulative.interact': 'Try it',
-  'widget.manipulative.interacted': 'Done ✓',
   'widget.manipulative.number-bond': 'Number bond',
   'widget.manipulative.fraction-bar': 'Fraction bar',
   'widget.tokens.tap_to_assemble': 'Tap to assemble your answer',

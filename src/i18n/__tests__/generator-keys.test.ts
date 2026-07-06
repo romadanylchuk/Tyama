@@ -46,8 +46,6 @@ const REQUIRED_KEYS: readonly string[] = [
   'widget.confirm',
   'widget.backspace',
   'widget.number.final_only',
-  'widget.manipulative.interact',
-  'widget.manipulative.interacted',
   'widget.manipulative.number-bond',
   'widget.manipulative.fraction-bar',
   'widget.tokens.tap_to_assemble',

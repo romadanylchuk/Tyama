@@ -386,8 +386,6 @@ const uk: CatalogResource = {
   'widget.confirm': 'Підтвердити',
   'widget.backspace': 'Стерти',
   'widget.number.final_only': 'Введи відповідь',
-  'widget.manipulative.interact': 'Спробувати',
-  'widget.manipulative.interacted': 'Готово ✓',
   'widget.manipulative.number-bond': 'Числовий зв’язок',
   'widget.manipulative.fraction-bar': 'Смужка дробу',
   'widget.tokens.tap_to_assemble': 'Торкайся, щоб зібрати відповідь',

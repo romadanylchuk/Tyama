@@ -1,5 +1,5 @@
 /**
- * ManipulativeWidget.tsx — Blind visual manipulative stub widget (CPA concrete/pictorial).
+ * ManipulativeWidget.tsx — CPA-concrete answer widget.
  *
  * BLIND INVARIANT: This component never receives `expected` and never emits
  * a verdict. It emits WidgetOutput { rawInput, inputStructure? } when confirmed.
@@ -7,18 +7,20 @@
  * NO DiagnosticPayload: ManipulativeWidget emits no diagnosticPayload.
  * The checking engine uses canonical numeric comparison for the output.
  *
- * FULL INTERACTIVITY IS A STAGE-06 CONCERN:
- *   This stage ships the blind contract and a functioning stub renderer.
- *   The stub renders a placeholder UI showing the model kind + confirming
- *   the blind output contract. Stage-06 polish replaces the stub with the
- *   full CPA-pictorial interactive implementation (drag/drop, fraction bars,
- *   number bond diagrams, etc.) without changing the WidgetOutput contract.
+ * CONCRETE REPRESENTATION + REAL ANSWER ENTRY:
+ *   This is the CPA-concrete band widget for 'number-bonds' (number-bond model)
+ *   and 'fraction-simplification' (fraction-bar model). The fully interactive
+ *   manipulative renderer (draggable bars / bond diagrams) is a later-stage
+ *   enhancement; until it lands, this widget names the concrete model as a
+ *   header and provides a real integer keypad so the learner can actually
+ *   answer and progress. Every manipulative answer in the MVP is an integer
+ *   (a number-bond part/whole, a reduced numerator/denominator), so the keypad
+ *   is integer-only (no decimal glyph).
  *
- * ManipulativeModel is a tagged union ('fraction-bar' | 'number-bond' | ...)
- * so new CPA manipulative types add a new case here in stage-06 without
- * changing the registry or contract.
+ *   Swapping in the interactive renderer later is contained to this file and
+ *   does not change the WidgetOutput contract (rawInput = the answer string).
  *
- * ANTI-SHAME: No correctness feedback rendered here. Stage-06 concern.
+ * ANTI-SHAME: No correctness feedback rendered here. That is a task-screen concern.
  */
 
 import React, { useCallback, useState } from 'react';
@@ -28,65 +30,108 @@ import { useT } from '@/i18n/useT';
 import type { ManipulativeWidgetConfig, WidgetOutput, WidgetProps } from './widget-types';
 
 // ---------------------------------------------------------------------------
+// Integer keypad layout (no decimal — manipulative answers are integers)
+// ---------------------------------------------------------------------------
+
+const KEYPAD_ROWS = [
+  ['7', '8', '9'],
+  ['4', '5', '6'],
+  ['1', '2', '3'],
+] as const;
+
+// ---------------------------------------------------------------------------
 // ManipulativeWidget
 // ---------------------------------------------------------------------------
 
-/**
- * ManipulativeWidget — stub renderer for visual manipulative models.
- *
- * Current implementation: renders the model kind name as a placeholder
- * and provides a confirm button. The learner's "interaction" is simulated
- * by the confirm action, which emits WidgetOutput with the serialized
- * model state as rawInput and inputStructure.
- *
- * Stage-06 replaces this stub with the full interactive renderer.
- */
 export function ManipulativeWidget({ config, onOutput }: WidgetProps): React.JSX.Element {
   const manipConfig = config as ManipulativeWidgetConfig;
   const t = useT();
-  const [interacted, setInteracted] = useState(false);
+  const [rawInput, setRawInput] = useState('');
 
-  const handleInteract = useCallback(() => {
-    // Stub interaction: mark as interacted (stage-06 will add real drag/tap logic).
-    setInteracted(true);
+  const handleKey = useCallback((key: string) => {
+    setRawInput((prev) => prev + key);
+  }, []);
+
+  const handleBackspace = useCallback(() => {
+    setRawInput((prev) => prev.slice(0, -1));
   }, []);
 
   const handleConfirm = useCallback(() => {
-    // Serialize the model state as rawInput for the pipeline.
-    // In the full implementation, this would reflect the learner's
-    // actual manipulative state (e.g. fraction bar segments selected).
-    const modelState = JSON.stringify(manipConfig.model.payload ?? {});
     const out: WidgetOutput = {
-      rawInput: modelState,
-      // inputStructure: the full model object for downstream stage-04/06 use.
+      // rawInput: the typed integer answer — parsed by the pipeline.
+      rawInput,
+      // inputStructure: forward the concrete model for downstream stage-04/06 use.
       inputStructure: manipConfig.model,
       // No diagnosticPayload — manipulative uses canonical comparison.
     };
     onOutput(out);
-    setInteracted(false);
-  }, [manipConfig.model, onOutput]);
+    // Reset for the next step (fraction-simplification mounts this per-step).
+    setRawInput('');
+  }, [rawInput, manipConfig.model, onOutput]);
 
   return (
     <View style={styles.container}>
-      {/* Model kind label — stage-06 replaces with the real interactive widget. */}
-      <View style={styles.modelStub} testID="manipulative-stub">
-        <Text style={styles.stubKind}>{t({ key: `widget.manipulative.${manipConfig.model.kind}` })}</Text>
-        <Text style={styles.stubNote}>{'[stub — stage-06 interactive renderer]'}</Text>
-        {interacted ? (
-          <Text style={styles.stubInteracted}>{t({ key: 'widget.manipulative.interacted' })}</Text>
-        ) : null}
+      {/* Concrete-representation header — names the manipulative model. The full
+          interactive fraction-bar / number-bond renderer is a later-stage
+          enhancement; the learner answers with the keypad below in the meantime. */}
+      <View style={styles.modelHeader} testID="manipulative-model">
+        <Text style={styles.modelKind}>
+          {t({ key: `widget.manipulative.${manipConfig.model.kind}` })}
+        </Text>
       </View>
 
-      {/* Stub interaction button */}
-      <TouchableOpacity
-        style={styles.interactButton}
-        onPress={handleInteract}
-        accessibilityRole="button"
-        accessibilityLabel={t({ key: 'widget.manipulative.interact' })}
-        testID="interact-button"
-      >
-        <Text style={styles.interactText}>{t({ key: 'widget.manipulative.interact' })}</Text>
-      </TouchableOpacity>
+      {/* Answer display — light background so the dark answer text is legible. */}
+      <View style={styles.displayRow}>
+        <Text style={styles.displayText} testID="manipulative-display">
+          {rawInput.length > 0 ? rawInput : ' '}
+        </Text>
+      </View>
+
+      {/* Digit rows */}
+      {KEYPAD_ROWS.map((row, rowIndex) => (
+        <View key={rowIndex} style={styles.keyRow}>
+          {row.map((key) => (
+            <TouchableOpacity
+              key={key}
+              style={styles.key}
+              onPress={() => handleKey(key)}
+              accessibilityRole="button"
+              accessibilityLabel={key}
+            >
+              <Text style={styles.keyText}>{key}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ))}
+
+      {/* Bottom row: minus, zero, backspace */}
+      <View style={styles.keyRow}>
+        <TouchableOpacity
+          style={styles.key}
+          onPress={() => handleKey('-')}
+          accessibilityRole="button"
+          accessibilityLabel="-"
+        >
+          <Text style={styles.keyText}>{'-'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.key}
+          onPress={() => handleKey('0')}
+          accessibilityRole="button"
+          accessibilityLabel="0"
+        >
+          <Text style={styles.keyText}>{'0'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.key}
+          onPress={handleBackspace}
+          accessibilityRole="button"
+          accessibilityLabel={t({ key: 'widget.backspace' })}
+          testID="backspace-key"
+        >
+          <Text style={styles.keyText}>{'⌫'}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Confirm */}
       <TouchableOpacity
@@ -109,44 +154,49 @@ export function ManipulativeWidget({ config, onOutput }: WidgetProps): React.JSX
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    gap: 12,
-  },
-  modelStub: {
-    width: '100%',
-    minHeight: 80,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    padding: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fafafa',
+    gap: 8,
   },
-  stubKind: {
-    fontSize: 16,
+  modelHeader: {
+    width: '100%',
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  modelKind: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#555',
+    color: '#888',
   },
-  stubNote: {
-    fontSize: 11,
-    color: '#aaa',
-    marginTop: 4,
-  },
-  stubInteracted: {
-    fontSize: 13,
-    color: '#007AFF',
-    marginTop: 8,
-  },
-  interactButton: {
+  displayRow: {
     width: '100%',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  displayText: {
+    fontSize: 24,
+    color: '#111',
+    textAlign: 'right',
+  },
+  keyRow: {
+    flexDirection: 'row',
+    gap: 8,
+    width: '100%',
+  },
+  key: {
+    flex: 1,
     backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 6,
+    paddingVertical: 14,
     alignItems: 'center',
   },
-  interactText: {
-    fontSize: 15,
+  keyText: {
+    fontSize: 20,
     color: '#333',
   },
   confirmButton: {
@@ -155,6 +205,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
+    marginTop: 4,
   },
   confirmText: {
     fontSize: 16,
