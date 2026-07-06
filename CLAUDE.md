@@ -4,7 +4,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-**Pre-implementation — architecture complete, no code yet.** The repo contains the product/architecture brief (`tyama-architect-brief-en.md`) and a finished architecture-decision record under `.ai-arch/`. There is no `package.json`, app scaffold, or build tooling yet, and it is not a git repo. When you scaffold the app (start with stage 01 — see below), update this file with the real build/test/lint commands.
+**Stage 01 (Foundation & Persistence) — COMPLETE.** All six phases implemented and verified (2026-06-25).
+
+### Build / test / lint commands
+
+```bash
+# TypeScript type-check (no emit)
+npx tsc --noEmit
+
+# ESLint (flat config, two custom seam-discipline rules)
+npx eslint .
+
+# Jest (all test suites, 10 suites / 155 tests)
+npx jest
+# or with coverage:
+npx jest --coverage
+
+# Expo dev-client build (requires EAS account)
+# iOS: eas build --profile development --platform ios
+# Android: eas build --profile development --platform android
+```
+
+### Stage 01 deliverables
+
+- `expo-sqlite` system of record (5 tables + 2 indices, WAL mode)
+- Forward-only DB-schema migration runner (PRAGMA `user_version`)
+- Hybrid truth-model: materialized progress + durable/milestone events (atomic gate) + firehose
+- `recordMilestone()` narrow gate with 4-layer structural enforcement (private + barrel + lint + tests)
+- Typed `SettingsRepository` hot-state seam (sync cache-backed reads, async writes)
+- Device-id and logical clock (sync-readiness primitives)
+- Declarative node-identity mastery-migration applier with anti-shame propagation
+- Firehose compaction mechanism (shipped disarmed via config-as-data)
+- JSON export/import backup (full-replace atomic, pre-import auto-backup, version gating)
+- Two custom ESLint rules: `no-raw-sql-hot-read` + `no-direct-milestone-mutation` (both real/enforced)
 
 **Two sources of truth, in order:** `.ai-arch/` is the *decided architecture* and the more current, more specific record — read it first. The brief is the original product vision the architecture was derived from. They agree; where granularity differs, `.ai-arch/` wins.
 

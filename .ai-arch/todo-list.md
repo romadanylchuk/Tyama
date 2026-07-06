@@ -6,7 +6,7 @@ _Source: .ai-arch/feature-briefs/_
 
 | # | Stage | Brief | Depends On | Status |
 |---|-------|-------|------------|--------|
-| 01 | Foundation & Persistence Substrate | [01-foundation-persistence.md](feature-briefs/01-foundation-persistence.md) | — | not started |
+| 01 | Foundation & Persistence Substrate | [01-foundation-persistence.md](feature-briefs/01-foundation-persistence.md) | — | **done** (2026-06-25) |
 | 02 | Skill Graph Engine & Generation Core | [02-graph-engine-generation-core.md](feature-briefs/02-graph-engine-generation-core.md) | 01 | not started |
 | 03 | Answer Pipeline (Input · Locale · Checking) | [03-answer-pipeline.md](feature-briefs/03-answer-pipeline.md) | 02 | not started |
 | 04 | Diagnostic Loop & Mastery Gates | [04-diagnostic-loop-mastery.md](feature-briefs/04-diagnostic-loop-mastery.md) | 02, 03 | not started |
