@@ -53,4 +53,34 @@ describe('NodeMapScreen', () => {
     fireEvent.press(tile);
     expect(onSelectNode).toHaveBeenCalledWith('fruit-equations');
   });
+
+  it('marks the recommended node and due-review nodes; unmarked otherwise', async () => {
+    const { getByTestId, queryByTestId } = render(
+      <ThemeProvider>
+        <NodeMapScreen
+          onSelectNode={jest.fn()}
+          recommendedNodeId="fruit-equations"
+          dueNodeIds={new Set(['number-bonds'])}
+        />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('node-map-recommended-fruit-equations')).toBeTruthy());
+    expect(getByTestId('node-map-due-number-bonds')).toBeTruthy();
+    // Nodes outside the guidance carry no markers.
+    expect(queryByTestId('node-map-recommended-number-bonds')).toBeNull();
+    expect(queryByTestId('node-map-due-fruit-equations')).toBeNull();
+  });
+
+  it('renders an unmarked map when no guidance props are supplied', async () => {
+    const { getByTestId, queryByTestId } = render(
+      <ThemeProvider>
+        <NodeMapScreen onSelectNode={jest.fn()} />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('node-map-tile-fruit-equations')).toBeTruthy());
+    expect(queryByTestId('node-map-recommended-fruit-equations')).toBeNull();
+    expect(queryByTestId('node-map-due-fruit-equations')).toBeNull();
+  });
 });

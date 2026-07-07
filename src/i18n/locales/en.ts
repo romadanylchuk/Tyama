@@ -243,6 +243,8 @@ const en: CatalogResource = {
   'nav.task': 'Task',
   'nav.settings': 'Settings',
   'nav.back': 'Back',
+  'nav.recommended': '⭐ Recommended',
+  'nav.reviewDue': '🔄 Time to review',
 
   // -------------------------------------------------------------------------
   // task.* — Task-screen chrome (ordinary)

@@ -44,6 +44,18 @@ import { layoutNodes, type NodeLayoutEntry } from './node-layout';
 export interface NodeMapScreenProps {
   /** Called when the learner taps an available/in-progress/mastered node. */
   readonly onSelectNode: (nodeId: NodeId) => void;
+  /**
+   * The node `whereToNext` would propose right now (computed by AppShell) —
+   * highlighted so the map GUIDES instead of presenting an unranked grid.
+   * Null/absent: no highlight (nothing proposable, or caller opted out).
+   */
+  readonly recommendedNodeId?: NodeId | null;
+  /**
+   * Nodes with a spaced-repetition review currently due (dueAt <= now).
+   * Marked with a calm "час повторити" hint — otherwise the engine's routing
+   * to them at session start feels random to the learner.
+   */
+  readonly dueNodeIds?: ReadonlySet<NodeId>;
 }
 
 const ROW_HEIGHT = 96;
@@ -53,7 +65,11 @@ const COMPANION_SLOT_HEIGHT = 80;
 // NodeMapScreen
 // ---------------------------------------------------------------------------
 
-export function NodeMapScreen({ onSelectNode }: NodeMapScreenProps): React.JSX.Element {
+export function NodeMapScreen({
+  onSelectNode,
+  recommendedNodeId,
+  dueNodeIds,
+}: NodeMapScreenProps): React.JSX.Element {
   const { tokens } = useTheme();
   const t = useT();
   const mastery = useMastery();
@@ -109,11 +125,18 @@ export function NodeMapScreen({ onSelectNode }: NodeMapScreenProps): React.JSX.E
               mastery.abstractAttempts.get(entry.nodeId) ?? 0
             );
             const inert = ringState.state === 'not-yet-open';
+            const isRecommended = entry.nodeId === recommendedNodeId;
+            const isDue = dueNodeIds?.has(entry.nodeId) ?? false;
 
             return (
               <TouchableOpacity
                 key={entry.nodeId}
-                style={styles.tile}
+                style={[
+                  styles.tile,
+                  isRecommended
+                    ? [styles.tileRecommended, { borderColor: tokens.color.accent }]
+                    : null,
+                ]}
                 disabled={inert}
                 onPress={() => onSelectNode(entry.nodeId)}
                 accessibilityRole="button"
@@ -130,6 +153,22 @@ export function NodeMapScreen({ onSelectNode }: NodeMapScreenProps): React.JSX.E
                 >
                   {nodeDisplayName(t, entry.nodeId)}
                 </Text>
+                {isRecommended ? (
+                  <Text
+                    style={[styles.tileBadge, { color: tokens.color.accent }]}
+                    testID={`node-map-recommended-${entry.nodeId}`}
+                  >
+                    {t({ key: 'nav.recommended' })}
+                  </Text>
+                ) : null}
+                {isDue ? (
+                  <Text
+                    style={[styles.tileBadge, { color: tokens.color.textSecondary }]}
+                    testID={`node-map-due-${entry.nodeId}`}
+                  >
+                    {t({ key: 'nav.reviewDue' })}
+                  </Text>
+                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -178,6 +217,16 @@ const styles = StyleSheet.create({
   tileLabel: {
     fontSize: 12,
     textAlign: 'center',
+  },
+  tileRecommended: {
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  tileBadge: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   companionSlot: {
     width: '100%',

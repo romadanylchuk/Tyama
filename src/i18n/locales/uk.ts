@@ -334,6 +334,9 @@ const uk: CatalogResource = {
   'nav.task': 'Завдання',
   'nav.settings': 'Налаштування',
   'nav.back': 'Назад',
+  // Map guidance: the engine's proposed next node + due spaced-repetition reviews.
+  'nav.recommended': '⭐ Рекомендуємо',
+  'nav.reviewDue': '🔄 Час повторити',
 
   // -------------------------------------------------------------------------
   // task.* — Task-screen chrome (ordinary)

@@ -131,10 +131,40 @@ function AppShellContent(): React.JSX.Element {
   const t = useT();
 
   const [screen, setScreen] = useState<Screen>({ kind: 'loading' });
+  // Map guidance: the whereToNext recommendation + due-review markers shown on
+  // the node map (computed fresh each time the map is entered — the engine
+  // already routes by these; the map must SHOW them or its choices feel random).
+  const [mapGuidance, setMapGuidance] = useState<{
+    readonly recommended: NodeId | null;
+    readonly due: ReadonlySet<NodeId>;
+  }>({ recommended: null, due: new Set() });
   const controllerRef = useRef<SessionController | null>(null);
   if (controllerRef.current === null) {
     controllerRef.current = new SessionController({ graph: loadGraph() });
   }
+
+  useEffect(() => {
+    if (screen.kind !== 'node-map') return;
+    let cancelled = false;
+    void (async (): Promise<void> => {
+      try {
+        const dueRows = await getDueNodes(Date.now());
+        const recommended = await computeEntryNode(loadGraph(), controllerRef.current!);
+        if (!cancelled) {
+          setMapGuidance({ recommended, due: new Set(dueRows.map((r) => r.nodeId)) });
+        }
+      } catch (err) {
+        // Guidance is decoration, never a blocker — degrade to an unmarked map.
+        console.warn('[AppShell] map-guidance computation failed (non-fatal):', err);
+        if (!cancelled) {
+          setMapGuidance({ recommended: null, due: new Set() });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [screen]);
 
   // Resolves the post-onboarding / returning-learner screen: the same
   // validate-then-compute-entry sequence, shared by the initial mount effect
@@ -225,7 +255,13 @@ function AppShellContent(): React.JSX.Element {
   }
 
   if (screen.kind === 'node-map') {
-    return <NodeMapScreen onSelectNode={handleSelectNode} />;
+    return (
+      <NodeMapScreen
+        onSelectNode={handleSelectNode}
+        recommendedNodeId={mapGuidance.recommended}
+        dueNodeIds={mapGuidance.due}
+      />
+    );
   }
 
   return (
