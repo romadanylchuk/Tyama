@@ -215,6 +215,14 @@ export interface Step {
    * Present when the step needs to display additional context alongside its prompt.
    */
   readonly problem?: LocalizedRef;
+  /**
+   * Optional SHORT label naming the quantity this step solves for (e.g. "🍎"),
+   * used by the presentation layer to recap an already-answered step while a
+   * LATER step is being answered — rendered as `{recap} = {learner's answer}`
+   * (e.g. "🍎 = 2" shown while solving 🍌). Purely presentational; the checker
+   * never reads it. Absent for single-step tasks (no recap to show).
+   */
+  readonly recap?: LocalizedRef;
   /** Which answer-entry modality the UI should render for this step. */
   readonly inputMode: InputMode;
   /**

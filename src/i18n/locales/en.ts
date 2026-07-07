@@ -305,6 +305,9 @@ const en: CatalogResource = {
     'Equations:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}\nFind 🍎, then 🍌.',
   'fruit_eq.step.apple': 'What is 🍎?',
   'fruit_eq.step.banana': 'What is 🍌?',
+  // Short recap labels — shown as "🍎 = 2" while a later fruit is being solved.
+  'fruit_eq.recap.apple': '🍎',
+  'fruit_eq.recap.banana': '🍌',
 
   // -------------------------------------------------------------------------
   // widget.* — Answer-widget chrome labels (ordinary).

@@ -92,6 +92,16 @@ function nodeLabel(nodeId: NodeId): string {
   return nodeId.replace(/[-_]+/g, ' ');
 }
 
+/**
+ * Display form of a learner's widget answer for the solved-step recap.
+ * The tokens widget space-joins its digit tokens (so the locale parser can strip
+ * group separators); collapse that whitespace back into the plain number so the
+ * recap reads "🍎 = 10", not "🍎 = 1 0".
+ */
+function recapAnswer(output: WidgetOutput | undefined): string {
+  return (output?.rawInput ?? '').replace(/\s+/g, '');
+}
+
 // ---------------------------------------------------------------------------
 // TaskScreen
 // ---------------------------------------------------------------------------
@@ -357,6 +367,24 @@ export function TaskScreen({
         {t(task.problem.prompt)}
       </Text>
 
+      {/* Recap of already-solved steps (e.g. "🍎 = 2") so the learner can use
+          those values while answering a later step. Non-multi-slot only:
+          multi-slot tasks collect every slot at once, so there is no in-between. */}
+      {!isMultiSlot && stepIndex > 0 ? (
+        <View style={styles.recap} testID="step-recap">
+          {task.steps.slice(0, stepIndex).map((s, index) =>
+            s.recap ? (
+              <Text
+                key={index}
+                style={[styles.recapItem, { color: tokens.color.textSecondary }]}
+              >
+                {`${t(s.recap)} = ${recapAnswer(outputs[index])}`}
+              </Text>
+            ) : null
+          )}
+        </View>
+      ) : null}
+
       {isMultiSlot ? (
         task.steps.map((s, index) => (
           <Text
@@ -513,6 +541,13 @@ const styles = StyleSheet.create({
   },
   stepPrompt: {
     fontSize: 15,
+  },
+  recap: {
+    gap: 2,
+  },
+  recapItem: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   feedback: {
     borderWidth: 1,

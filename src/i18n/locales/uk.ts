@@ -375,6 +375,9 @@ const uk: CatalogResource = {
     'Рівняння:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}\nЗнайди 🍎, потім 🍌.',
   'fruit_eq.step.apple': 'Скільки становить 🍎?',
   'fruit_eq.step.banana': 'Скільки становить 🍌?',
+  // Short recap labels — shown as "🍎 = 2" while a later fruit is being solved.
+  'fruit_eq.recap.apple': '🍎',
+  'fruit_eq.recap.banana': '🍌',
 
   // -------------------------------------------------------------------------
   // widget.* — Answer-widget chrome labels (ordinary). Rendered via useT()

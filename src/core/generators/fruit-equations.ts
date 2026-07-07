@@ -233,8 +233,11 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
   const inputMode: 'tokens' | 'number' =
     concrete.representationLevel === 'pictorial' ? 'tokens' : 'number';
 
-  const makeStep = (key: string, value: number): Step => ({
+  const makeStep = (key: string, recapKey: string, value: number): Step => ({
     prompt: { key },
+    // recap: a short fruit label so a two-fruit task can show the already-solved
+    // fruit (e.g. "🍎 = 2") while the learner works the second fruit.
+    recap: { key: recapKey },
     inputMode,
     // expected is the canonical string of the pre-chosen fruit value.
     expected: canonicalize(value),
@@ -245,9 +248,9 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
   });
 
   // Ordered steps, in solving order: 🍎 first (equation 1), then 🍌 (equation 2).
-  const steps: Step[] = [makeStep('fruit_eq.step.apple', concrete.apple)];
+  const steps: Step[] = [makeStep('fruit_eq.step.apple', 'fruit_eq.recap.apple', concrete.apple)];
   if (concrete.unknowns === 2) {
-    steps.push(makeStep('fruit_eq.step.banana', concrete.banana as number));
+    steps.push(makeStep('fruit_eq.step.banana', 'fruit_eq.recap.banana', concrete.banana as number));
   }
 
   // Problem prompt: carries the numeric coefficients/totals so the presentation

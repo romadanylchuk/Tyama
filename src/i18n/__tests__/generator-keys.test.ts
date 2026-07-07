@@ -42,6 +42,8 @@ const REQUIRED_KEYS: readonly string[] = [
   'fruit_eq.problem.unknowns_2',
   'fruit_eq.step.apple',
   'fruit_eq.step.banana',
+  'fruit_eq.recap.apple',
+  'fruit_eq.recap.banana',
   // widget chrome (rendered via useT() in the widgets)
   'widget.confirm',
   'widget.backspace',

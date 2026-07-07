@@ -117,6 +117,33 @@ describe('TaskScreen', () => {
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 
+  it('recaps an already-solved step (🍎 = value) while the next step is answered', async () => {
+    // Aggregate 0.5 selects fruit-equations band 1 (2 unknowns → 2 sequential steps).
+    await seedAggregate('fruit-equations', 0.5);
+    const controller = new SessionController({ graph: GRAPH_FIXTURE });
+    const { getByTestId, getByLabelText, queryByTestId, findByText } = render(
+      <ThemeProvider>
+        <TaskScreen
+          nodeId="fruit-equations"
+          controller={controller}
+          onExit={jest.fn()}
+          onNavigate={jest.fn()}
+        />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('task-screen')).toBeTruthy());
+    // No recap before the first answer is given.
+    expect(queryByTestId('step-recap')).toBeNull();
+
+    // Answer step 1 (🍎) with a value via the pictorial tokens palette.
+    fireEvent.press(getByLabelText('2'));
+    fireEvent.press(getByTestId('confirm-button'));
+
+    // While step 2 (🍌) is being answered, the 🍎 value must be shown for reuse.
+    await expect(findByText('🍎 = 2')).resolves.toBeTruthy();
+  });
+
   it('renders a calm all-caught-up view for an unknown nodeId rather than throwing', async () => {
     const controller = new SessionController({ graph: GRAPH_FIXTURE });
     const { findByText } = render(
