@@ -172,12 +172,12 @@ describe('fruitEquations — solution field', () => {
 // ---------------------------------------------------------------------------
 
 describe('fruitEquations — backward construction correctness', () => {
-  it('for 1 unknown: step[0].expected value equals total (equation balances)', () => {
+  it('for 1 unknown: solution equals the single step answer (🍎)', () => {
     const task = fruitEquations.generate(EASY_DIFFICULTY, createSeededRng(FIXED_SEED));
     expect(task.steps).toHaveLength(1);
     const stepVal = parseInt(task.steps[0].expected, 10);
     const solutionVal = parseInt(task.solution, 10);
-    expect(stepVal).toBe(solutionVal); // single unknown IS the total
+    expect(stepVal).toBe(solutionVal); // solution === 🍎 for a one-fruit task
   });
 
   it('for 2 unknowns: sum of step values equals the canonical solution total', () => {
@@ -211,10 +211,18 @@ describe('fruitEquations — language-neutral LocalizedRef', () => {
     expect(task.problem.prompt.key).toMatch(/^[a-z_][a-z0-9._]*$/);
   });
 
-  it('problem.prompt.vars contains total (not a localized display string)', () => {
-    const task = fruitEquations.generate(MEDIUM_DIFFICULTY, createSeededRng(FIXED_SEED));
-    expect(task.problem.prompt.vars).toBeDefined();
-    expect(typeof task.problem.prompt.vars!.total).toBe('number');
+  it('problem.prompt.vars carry the equation numbers (coeff/totals, not display strings)', () => {
+    // 1 unknown: { coeff, total } — renders "coeff × 🍎 = total".
+    const easy = fruitEquations.generate(EASY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(easy.problem.prompt.vars).toBeDefined();
+    expect(typeof easy.problem.prompt.vars!.coeff).toBe('number');
+    expect(typeof easy.problem.prompt.vars!.total).toBe('number');
+
+    // 2 unknowns: { coeffA, total1, total2 } — renders both equations.
+    const medium = fruitEquations.generate(MEDIUM_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(typeof medium.problem.prompt.vars!.coeffA).toBe('number');
+    expect(typeof medium.problem.prompt.vars!.total1).toBe('number');
+    expect(typeof medium.problem.prompt.vars!.total2).toBe('number');
   });
 
   it('each step.prompt is a LocalizedRef with a key', () => {
@@ -305,26 +313,42 @@ describe('fruitEquations — representation', () => {
 // instantiate (exposed for testing per Generator contract)
 // ---------------------------------------------------------------------------
 
+interface Concrete {
+  unknowns: 1 | 2;
+  apple: number;
+  coeffA: number;
+  total1: number;
+  banana?: number;
+  total2?: number;
+}
+
 describe('fruitEquations.instantiate()', () => {
-  it('returns an object with unknownSlots and quantities', () => {
+  it('produces a solvable coefficient equation (coeffA × apple = total1, coeffA ≥ 2)', () => {
+    const band = {
+      minCoordinate: 0,
+      representationLevel: 'pictorial' as const,
+      params: { unknowns: 1, range: 5, negatives: false },
+    };
+    const r = fruitEquations.instantiate(band, createSeededRng(FIXED_SEED)) as Concrete;
+    expect(r.unknowns).toBe(1);
+    expect(r.coeffA).toBeGreaterThanOrEqual(2);
+    // Equation 1 balances → apple is uniquely recoverable as total1 / coeffA.
+    expect(r.total1).toBe(r.coeffA * r.apple);
+    expect(r.banana).toBeUndefined();
+  });
+
+  it('produces a solvable 2-equation system (coeffA × apple = total1; apple + banana = total2)', () => {
     const band = {
       minCoordinate: 0,
       representationLevel: 'pictorial' as const,
       params: { unknowns: 2, range: 10, negatives: false },
     };
-    const result = fruitEquations.instantiate(band, createSeededRng(FIXED_SEED)) as {
-      unknownSlots: string[];
-      quantities: Record<string, number>;
-      total: number;
-    };
-    expect(result.unknownSlots).toHaveLength(2);
-    expect(typeof result.total).toBe('number');
-    // total should equal sum of quantities
-    const sum = result.unknownSlots.reduce(
-      (acc, slot) => acc + result.quantities[slot],
-      0
-    );
-    expect(result.total).toBe(sum);
+    const r = fruitEquations.instantiate(band, createSeededRng(FIXED_SEED)) as Concrete;
+    expect(r.unknowns).toBe(2);
+    expect(r.coeffA).toBeGreaterThanOrEqual(2);
+    // Both equations balance → apple, then banana, are uniquely deducible.
+    expect(r.total1).toBe(r.coeffA * r.apple);
+    expect(r.total2).toBe(r.apple + (r.banana as number));
   });
 
   it('instantiate is reproducible with the same seed', () => {
@@ -333,12 +357,43 @@ describe('fruitEquations.instantiate()', () => {
       representationLevel: 'abstract' as const,
       params: { unknowns: 2, range: 5, negatives: false },
     };
-    const r1 = fruitEquations.instantiate(band, createSeededRng(7)) as {
-      quantities: Record<string, number>;
-    };
-    const r2 = fruitEquations.instantiate(band, createSeededRng(7)) as {
-      quantities: Record<string, number>;
-    };
-    expect(r1.quantities).toEqual(r2.quantities);
+    const r1 = fruitEquations.instantiate(band, createSeededRng(7)) as Concrete;
+    const r2 = fruitEquations.instantiate(band, createSeededRng(7)) as Concrete;
+    expect(r1).toEqual(r2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Puzzle is genuinely solvable (regression: the old generator was degenerate —
+// 1-unknown was trivial "apple = total", 2-unknown was underdetermined).
+// ---------------------------------------------------------------------------
+
+describe('fruitEquations — puzzle is uniquely solvable', () => {
+  it('one unknown: apple is recoverable by division and is NOT just the total', () => {
+    let sawNonTrivial = false;
+    for (let seed = 0; seed < 30; seed++) {
+      const task = fruitEquations.generate(EASY_DIFFICULTY, createSeededRng(seed));
+      const coeff = task.problem.prompt.vars!.coeff as number;
+      const total = task.problem.prompt.vars!.total as number;
+      const apple = parseInt(task.steps[0].expected, 10);
+      // The stated equation holds and the answer is total / coeff (real division).
+      expect(total).toBe(coeff * apple);
+      if (apple !== total) sawNonTrivial = true;
+    }
+    // coeff ≥ 2 guarantees apple !== total whenever apple !== 0.
+    expect(sawNonTrivial).toBe(true);
+  });
+
+  it('two unknowns: both equations pin the answers exactly', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const task = fruitEquations.generate(MEDIUM_DIFFICULTY, createSeededRng(seed));
+      const coeffA = task.problem.prompt.vars!.coeffA as number;
+      const total1 = task.problem.prompt.vars!.total1 as number;
+      const total2 = task.problem.prompt.vars!.total2 as number;
+      const apple = parseInt(task.steps[0].expected, 10);
+      const banana = parseInt(task.steps[1].expected, 10);
+      expect(total1).toBe(coeffA * apple); // equation 1 → apple
+      expect(total2).toBe(apple + banana); // equation 2 → banana
+    }
   });
 });

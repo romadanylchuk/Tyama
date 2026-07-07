@@ -370,12 +370,11 @@ const uk: CatalogResource = {
   //   step keys encode the fruit slot (apple | banana), vars: slot.
   // -------------------------------------------------------------------------
 
-  'fruit_eq.problem.unknowns_1':
-    'Фруктова рівність: знайди, скільки становить фрукт. Сума дорівнює {{total}}.',
+  'fruit_eq.problem.unknowns_1': 'Рівняння: {{coeff}} × 🍎 = {{total}}.',
   'fruit_eq.problem.unknowns_2':
-    'Фруктова рівність: знайди значення кожного фрукта. Їхня сума дорівнює {{total}}.',
-  'fruit_eq.step.apple': 'Скільки становить 🍎 (яблуко)?',
-  'fruit_eq.step.banana': 'Скільки становить 🍌 (банан)?',
+    'Рівняння:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}',
+  'fruit_eq.step.apple': 'Скільки становить 🍎?',
+  'fruit_eq.step.banana': 'Скільки становить 🍌?',
 
   // -------------------------------------------------------------------------
   // widget.* — Answer-widget chrome labels (ordinary). Rendered via useT()

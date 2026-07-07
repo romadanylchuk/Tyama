@@ -300,12 +300,11 @@ const en: CatalogResource = {
   // fruit_eq.* — Fruit-equations prompts (problem vars: total; step vars: slot).
   // -------------------------------------------------------------------------
 
-  'fruit_eq.problem.unknowns_1':
-    'Fruit equation: find how much the fruit is worth. The total is {{total}}.',
+  'fruit_eq.problem.unknowns_1': 'Equation: {{coeff}} × 🍎 = {{total}}.',
   'fruit_eq.problem.unknowns_2':
-    'Fruit equation: find the value of each fruit. Their total is {{total}}.',
-  'fruit_eq.step.apple': 'How much is 🍎 (apple)?',
-  'fruit_eq.step.banana': 'How much is 🍌 (banana)?',
+    'Equations:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}',
+  'fruit_eq.step.apple': 'What is 🍎?',
+  'fruit_eq.step.banana': 'What is 🍌?',
 
   // -------------------------------------------------------------------------
   // widget.* — Answer-widget chrome labels (ordinary).

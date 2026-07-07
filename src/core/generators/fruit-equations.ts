@@ -8,29 +8,37 @@
  *     - Deterministic step.expected values (same seed → same task).
  *     - Zero floating-point arithmetic on the answer path (all integers for MVP).
  *
- * FRUIT-EQUATIONS CONCEPT:
- *   An equation where quantities of fruit icons substitute for abstract numbers
- *   (the "pictorial bridge" in CPA pedagogy). Example:
- *     🍎 + 🍎 + 🍊 = 7,  find 🍎 and 🍊 separately.
- *   Each unknown fruit quantity is the "answer" drawn first; the total is derived
- *   by summing.
+ * FRUIT-EQUATIONS CONCEPT — a SOLVABLE fruit puzzle (the "pictorial bridge" to
+ * algebra, where a fruit icon stands for an unknown number):
+ *
+ *   One unknown (a coefficient equation → real division):
+ *     🍎 × 3 = 12        find 🍎  → 4
+ *
+ *   Two unknowns (a triangular 2-equation system → division, then subtraction):
+ *     🍎 × 3 = 12        find 🍎  → 4
+ *     🍎 + 🍌 = 6        find 🍌  → 2   (using the 🍎 just found)
+ *
+ *   Every task has exactly ONE answer per fruit that the learner can actually
+ *   deduce — never underdetermined. The coefficient is drawn ≥ 2 so the one-
+ *   fruit case is genuine arithmetic (never the degenerate 🍎 = total).
  *
  * BAND PARAMS (`params: { unknowns: number; range: number; negatives: boolean }`):
- *   - unknowns: how many distinct fruit types have unknown quantities (1 or 2).
- *   - range: each unknown is drawn from [1, range] (or [-range, range] if negatives).
+ *   - unknowns: how many distinct fruit types are solved for (1 or 2).
+ *   - range: each fruit value is drawn from [1, range] (or [-range, range] if negatives).
  *     When negatives is true, the sign is drawn uniformly; zero is excluded.
- *   - negatives: whether drawn values may be negative.
+ *   - negatives: whether drawn fruit values may be negative.
  *
- * STEPS:
- *   For unknowns === 1: one step ("what is apple?").
- *   For unknowns === 2: two ordered steps ("what is apple?", "what is banana?").
- *   Each step.expected is canonicalize(drawnValue) — never ad-hoc formatted.
+ * STEPS (one per unknown, in solving order):
+ *   For unknowns === 1: one step ("what is 🍎?").
+ *   For unknowns === 2: two ordered steps ("what is 🍎?", then "what is 🍌?").
+ *   Each step.expected is canonicalize(fruitValue) — never ad-hoc formatted.
  *   Each step carries SCALAR_DECIMAL_POLICY so the stage-03 checker reads the
  *   identical policy off the same Step object (DL-3; divergence impossible).
  *
  * LANGUAGE-NEUTRAL:
  *   problem.prompt and each step.prompt are LocalizedRef ({ key, vars }) —
- *   never raw localized strings. The presentation layer resolves keys.
+ *   never raw localized strings. The presentation layer resolves keys and
+ *   renders the equations from the numeric vars (coefficients, totals).
  *
  * ANTI-SHAME:
  *   No shaming vocabulary anywhere in this module. Steps are ordered sub-answers,
@@ -41,7 +49,15 @@
  *   `Math.random` is banned in src/core/** by the no-adhoc-number-format rule.
  */
 
-import type { Generator, GeneratedTask, DifficultyParams, Band, SeededRng, Step } from '@/core/types';
+import type {
+  Generator,
+  GeneratedTask,
+  DifficultyParams,
+  Band,
+  SeededRng,
+  Step,
+  LocalizedRef,
+} from '@/core/types';
 import { canonicalize, SCALAR_DECIMAL_POLICY } from '@/core/canonical';
 
 // ---------------------------------------------------------------------------
@@ -53,9 +69,9 @@ import { canonicalize, SCALAR_DECIMAL_POLICY } from '@/core/canonical';
  * Carried in Band.params (typed `unknown` at the core level; narrowed here).
  */
 interface FruitBandParams {
-  /** Number of distinct fruit types with unknown quantities: 1 or 2. */
+  /** Number of distinct fruit types solved for: 1 or 2. */
   readonly unknowns: number;
-  /** Draw range: unknown quantities drawn from [1..range] (or negatives). */
+  /** Draw range: fruit values drawn from [1..range] (or negatives). */
   readonly range: number;
   /** Whether negative values are allowed (only on higher difficulty bands). */
   readonly negatives: boolean;
@@ -84,16 +100,12 @@ function narrowBandParams(params: unknown): FruitBandParams {
 }
 
 // ---------------------------------------------------------------------------
-// Fruit names (stable — not localized; only the slot labels are i18n keys)
+// Coefficient range for the one-fruit equation (🍎 × coeff = total).
+// Always ≥ 2 so the task is real division, never the degenerate 🍎 = total.
 // ---------------------------------------------------------------------------
 
-/**
- * Stable slot identifiers for fruit unknowns.
- * Only 2 are needed for the MVP band params (unknowns <= 2).
- * The presentation layer maps these keys to icons/localized names.
- */
-const FRUIT_SLOTS = ['apple', 'banana'] as const;
-type FruitSlot = (typeof FRUIT_SLOTS)[number];
+const MIN_COEFF = 2;
+const MAX_COEFF = 3;
 
 // ---------------------------------------------------------------------------
 // ConcreteParams — the materialized instantiation result
@@ -102,16 +114,43 @@ type FruitSlot = (typeof FRUIT_SLOTS)[number];
 /**
  * The concrete parameter set produced by `instantiate()`.
  * Generator-internal; returned as `unknown` from the `Generator` interface.
+ *
+ * Equations (backward-constructed from the drawn fruit values):
+ *   coeffA × apple = total1        (always present)
+ *   apple + banana = total2        (only when unknowns === 2)
  */
 interface FruitConcreteParams {
-  /** Quantities for each fruit slot, indexed by slot name. */
-  readonly quantities: Record<FruitSlot, number>;
-  /** Ordered list of active unknowns for this task. */
-  readonly unknownSlots: readonly FruitSlot[];
-  /** The pre-chosen sum of all unknown quantities. */
-  readonly total: number;
-  /** The representation level from the band. */
   readonly representationLevel: 'concrete' | 'pictorial' | 'abstract';
+  /** How many fruits are solved for: 1 or 2. */
+  readonly unknowns: 1 | 2;
+  /** The value of 🍎 — the answer to step 1. */
+  readonly apple: number;
+  /** Coefficient in equation 1: coeffA × apple = total1 (≥ 2). */
+  readonly coeffA: number;
+  /** Right-hand side of equation 1 (= coeffA * apple). */
+  readonly total1: number;
+  /** The value of 🍌 — the answer to step 2 (unknowns === 2 only). */
+  readonly banana?: number;
+  /** Right-hand side of equation 2 (= apple + banana; unknowns === 2 only). */
+  readonly total2?: number;
+}
+
+// ---------------------------------------------------------------------------
+// drawValue — draw a single fruit value honoring the negatives flag
+// ---------------------------------------------------------------------------
+
+/**
+ * Draw one fruit value. Positive-only bands draw from [1, range]; negatives
+ * bands draw a non-zero value in [-range, range] (magnitude then sign, so 0 is
+ * excluded). All randomness flows through `rng`.
+ */
+function drawValue(range: number, negatives: boolean, rng: SeededRng): number {
+  if (negatives) {
+    const magnitude = rng.nextInt(1, range);
+    const sign = rng.nextInt(0, 1) === 0 ? 1 : -1;
+    return sign * magnitude;
+  }
+  return rng.nextInt(1, range);
 }
 
 // ---------------------------------------------------------------------------
@@ -122,68 +161,57 @@ interface FruitConcreteParams {
  * instantiate(band, rng): FruitConcreteParams
  *
  * Reads the band's `params` to determine the task shape, then draws concrete
- * values from `rng` FIRST (backward generation). The equation is constructed
- * from the drawn values — the total is derived, not guessed.
+ * fruit values from `rng` FIRST (backward generation) and derives the equation
+ * totals from them. The system is triangular and always uniquely solvable:
+ * equation 1 fixes 🍎 (division), equation 2 fixes 🍌 given 🍎 (subtraction).
  *
- * Backward generation guarantee: the answer is chosen before the problem is
- * stated. This makes it impossible for the construction to produce an
- * ill-formed or ambiguous problem.
+ * Draw order (fixed for reproducibility): apple, coeffA, [banana].
  *
  * @param band - The selected difficulty band (opaque params narrowed here).
  * @param rng  - Seeded PRNG; all randomness flows through this.
- * @returns     Concrete task parameters with pre-chosen answer quantities.
+ * @returns     Concrete task parameters with pre-chosen answer values.
  */
 function instantiate(band: Band, rng: SeededRng): FruitConcreteParams {
   const p = narrowBandParams(band.params);
 
-  // Clamp unknowns to the available fruit slots (1 or 2 for MVP).
-  const numUnknowns = Math.min(Math.max(1, p.unknowns), FRUIT_SLOTS.length);
-  const unknownSlots = FRUIT_SLOTS.slice(0, numUnknowns) as FruitSlot[];
+  // Clamp unknowns to the supported 1..2 range.
+  const unknowns = (Math.min(Math.max(1, p.unknowns), 2)) as 1 | 2;
 
-  // Draw each unknown quantity backward (choose the answer first).
-  const quantities: Record<string, number> = {};
-  for (const slot of unknownSlots) {
-    let value: number;
-    if (p.negatives) {
-      // Draw a non-zero value in [-range, range] (exclude 0 by forcing sign draw).
-      const magnitude = rng.nextInt(1, p.range);
-      // Draw sign: 0 → positive, 1 → negative.
-      const sign = rng.nextInt(0, 1) === 0 ? 1 : -1;
-      value = sign * magnitude;
-    } else {
-      // Positive only: [1, range].
-      value = rng.nextInt(1, p.range);
-    }
-    quantities[slot] = value;
+  // Draw 🍎 (the answer) and the coefficient; derive equation-1 total.
+  const apple = drawValue(p.range, p.negatives, rng);
+  const coeffA = rng.nextInt(MIN_COEFF, MAX_COEFF);
+  const total1 = coeffA * apple;
+
+  if (unknowns === 2) {
+    // Draw 🍌 (the answer) and derive equation-2 total (🍎 + 🍌).
+    const banana = drawValue(p.range, p.negatives, rng);
+    const total2 = apple + banana;
+    return {
+      representationLevel: band.representationLevel,
+      unknowns,
+      apple,
+      coeffA,
+      total1,
+      banana,
+      total2,
+    };
   }
 
-  // Derive the total by summing the quantities (backward construction: total is known).
-  const total = unknownSlots.reduce((sum, slot) => sum + quantities[slot], 0);
-
   return {
-    quantities: quantities as Record<FruitSlot, number>,
-    unknownSlots,
-    total,
     representationLevel: band.representationLevel,
+    unknowns,
+    apple,
+    coeffA,
+    total1,
   };
 }
 
 // ---------------------------------------------------------------------------
-// generate — builds the full GeneratedTask from concrete params
+// generate — the public backward-generation entry
 // ---------------------------------------------------------------------------
 
 /**
  * generate(difficulty, rng): GeneratedTask
- *
- * Produces a complete `GeneratedTask` from the given `DifficultyParams` and RNG.
- * Uses `selectBand` indirectly via the caller (the generator is given the full
- * `difficulty` envelope, which already carries the selected band's `params` inside
- * `difficulty.params`). Wait — the generator receives `DifficultyParams` which has
- * `params: unknown` — that IS the band.params opaque payload forwarded by the
- * caller who ran `selectBand`.
- *
- * Steps are ordered: for unknowns=1, one step; for unknowns=2, two steps.
- * Each step.expected is canonicalize(quantity) — shared canonical form.
  *
  * BYTE REPRODUCIBILITY:
  *   same `difficulty` + same `rng` seed → identical `GeneratedTask`.
@@ -198,48 +226,57 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
     params: difficulty.params,
   };
 
-  // Materialize concrete quantities (backward generation: answer chosen first).
   const concrete = instantiate(bandFromDifficulty, rng) as FruitConcreteParams;
 
-  // Build ordered steps (one per unknown slot).
-  const steps: Step[] = concrete.unknownSlots.map((slot) => {
-    const quantity = concrete.quantities[slot];
-    return {
-      prompt: {
-        key: `fruit_eq.step.${slot}`,
-        vars: { slot },
-      },
-      inputMode: concrete.representationLevel === 'pictorial' ? 'tokens' : 'number',
-      // expected is the canonical string of the pre-chosen answer (backward construction).
-      expected: canonicalize(quantity),
-      skillNode: 'fruit-equations',
-      // elicitFromMastery: propagate from the difficulty envelope (stage-04 computes the
-      // threshold; stages 02-03 carry the shape without interpreting it).
-      elicitFromMastery: difficulty.elicitFromMastery,
-      normalizationPolicy: SCALAR_DECIMAL_POLICY,
-    } satisfies Step;
+  // pictorial → 'tokens' (assemble the number from a digit palette),
+  // concrete/abstract → 'number' (numeric keypad).
+  const inputMode: 'tokens' | 'number' =
+    concrete.representationLevel === 'pictorial' ? 'tokens' : 'number';
+
+  const makeStep = (key: string, value: number): Step => ({
+    prompt: { key },
+    inputMode,
+    // expected is the canonical string of the pre-chosen fruit value.
+    expected: canonicalize(value),
+    skillNode: 'fruit-equations',
+    // elicitFromMastery: propagate from the difficulty envelope (stage-04 interprets it).
+    elicitFromMastery: difficulty.elicitFromMastery,
+    normalizationPolicy: SCALAR_DECIMAL_POLICY,
   });
 
-  // The solution for the whole task is the canonical total.
-  // (For unknowns=1, solution === steps[0].expected; for unknowns=2, it's the sum.)
-  const solution = canonicalize(concrete.total);
-
-  // Build the language-neutral problem prompt.
-  // vars carry the total and each fruit slot quantity so the presentation layer
-  // can render the full equation (e.g. "apple + banana = 7, find apple and banana").
-  const vars: Record<string, string | number> = { total: concrete.total };
-  for (const slot of concrete.unknownSlots) {
-    // We do NOT include the answers in the prompt vars (that would give it away).
-    // Only the total and slot placeholders are needed for the problem statement.
-    vars[`slot_${slot}`] = slot; // slot marker (presentation layer renders as icon).
+  // Ordered steps, in solving order: 🍎 first (equation 1), then 🍌 (equation 2).
+  const steps: Step[] = [makeStep('fruit_eq.step.apple', concrete.apple)];
+  if (concrete.unknowns === 2) {
+    steps.push(makeStep('fruit_eq.step.banana', concrete.banana as number));
   }
+
+  // Problem prompt: carries the numeric coefficients/totals so the presentation
+  // layer renders the actual equation(s). NEVER the answer values themselves.
+  const problemPrompt: LocalizedRef =
+    concrete.unknowns === 1
+      ? {
+          key: 'fruit_eq.problem.unknowns_1',
+          vars: { coeff: concrete.coeffA, total: concrete.total1 },
+        }
+      : {
+          key: 'fruit_eq.problem.unknowns_2',
+          vars: {
+            coeffA: concrete.coeffA,
+            total1: concrete.total1,
+            total2: concrete.total2 as number,
+          },
+        };
+
+  // solution = the canonical sum of the answers the learner produces (🍎, or
+  // 🍎 + 🍌). Used only as `correctAnswer` in the explanation context; the
+  // checker verifies each step against step.expected, not this field.
+  const solutionValue =
+    concrete.unknowns === 1 ? concrete.apple : concrete.apple + (concrete.banana as number);
+  const solution = canonicalize(solutionValue);
 
   return {
     problem: {
-      prompt: {
-        key: `fruit_eq.problem.unknowns_${concrete.unknownSlots.length}`,
-        vars,
-      },
+      prompt: problemPrompt,
       representation: concrete.representationLevel,
     },
     solution,
