@@ -52,6 +52,13 @@ const REQUIRED_KEYS: readonly string[] = [
   'widget.manipulative.fraction-bar',
   'widget.tokens.tap_to_assemble',
   'widget.tokens.remove_last',
+  // node display names (shown on the map + staged-descent routing copy)
+  'node.addition-within-20',
+  'node.unknown-as-missing-addend',
+  'node.number-bonds',
+  'node.multiplication',
+  'node.fruit-equations',
+  'node.fraction-simplification',
 ];
 
 describe('generator + widget i18n key completeness', () => {

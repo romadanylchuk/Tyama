@@ -60,6 +60,7 @@ import { getWidget, type MultiSlotWidgetConfig, type WidgetOutput } from '@/widg
 import { settings } from '@/repositories/settings-repository';
 import { useTheme } from '@/theme';
 import { useT } from '@/i18n';
+import { nodeDisplayName } from '@/i18n/node-name';
 import { deriveRingState, useMastery, useMotivation, MasteryRing } from '@/motivation';
 import { buildWidgetConfig } from './build-widget-config';
 import { SessionController, type SessionViewEvent } from './session-controller';
@@ -78,19 +79,6 @@ export interface TaskScreenProps {
   readonly onNavigate: (nodeId: NodeId) => void;
 }
 
-// ---------------------------------------------------------------------------
-// nodeLabel — a readable fallback label for a NodeId slug
-// ---------------------------------------------------------------------------
-
-/**
- * A locale-invariant readable label for a NodeId slug (e.g. 'fruit-equations'
- * → 'fruit equations'). No per-node display-name catalog exists yet in the
- * MVP — mirrors the same structural fallback `render-prompt.ts`'s
- * `defaultResolveLocalizedRef` already uses for LocalizedRef keys.
- */
-function nodeLabel(nodeId: NodeId): string {
-  return nodeId.replace(/[-_]+/g, ' ');
-}
 
 /**
  * Display form of a learner's widget answer for the solved-step recap.
@@ -479,7 +467,7 @@ function TaskFeedback({ viewEvent, nodeMastered, onContinue }: TaskFeedbackProps
         <>
           <Text style={{ color: tokens.color.textPrimary }}>{t({ key: 'descent.header' })}</Text>
           <Text style={{ color: tokens.color.textSecondary }}>
-            {t({ key: 'descent.body', vars: { node: nodeLabel(viewEvent.target) } })}
+            {t({ key: 'descent.body', vars: { node: nodeDisplayName(t, viewEvent.target) } })}
           </Text>
         </>
       );

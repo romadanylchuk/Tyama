@@ -33,6 +33,7 @@ import { resolveAvailability } from '@/core/generators/registry';
 import { resolveMasteryConfig } from '@/core/mastery/mastery-config';
 import { useTheme } from '@/theme';
 import { useT } from '@/i18n';
+import { nodeDisplayName } from '@/i18n/node-name';
 import { deriveRingState, useMastery, useMotivation, MasteryRing } from '@/motivation';
 import { layoutNodes, type NodeLayoutEntry } from './node-layout';
 
@@ -47,16 +48,6 @@ export interface NodeMapScreenProps {
 
 const ROW_HEIGHT = 96;
 const COMPANION_SLOT_HEIGHT = 80;
-
-/**
- * A readable label for a NodeId slug (e.g. 'fruit-equations' → 'fruit
- * equations'). No per-node display-name catalog exists in the MVP; this mirrors
- * the same structural slug fallback TaskScreen and the staged-descent card use,
- * so the map tiles are identifiable rather than anonymous rings.
- */
-function nodeLabel(nodeId: NodeId): string {
-  return nodeId.replace(/[-_]+/g, ' ');
-}
 
 // ---------------------------------------------------------------------------
 // NodeMapScreen
@@ -132,7 +123,7 @@ export function NodeMapScreen({ onSelectNode }: NodeMapScreenProps): React.JSX.E
                   style={[styles.tileLabel, { color: tokens.color.textSecondary }]}
                   numberOfLines={2}
                 >
-                  {nodeLabel(entry.nodeId)}
+                  {nodeDisplayName(t, entry.nodeId)}
                 </Text>
               </TouchableOpacity>
             );
@@ -182,7 +173,6 @@ const styles = StyleSheet.create({
   tileLabel: {
     fontSize: 12,
     textAlign: 'center',
-    textTransform: 'capitalize',
   },
   companionSlot: {
     width: '100%',

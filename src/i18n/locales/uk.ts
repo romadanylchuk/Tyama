@@ -282,6 +282,19 @@ const uk: CatalogResource = {
   // nav.* — Navigation / shell chrome (ordinary, no register requirement)
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // node.* — Localized skill-node display names (keyed by node slug).
+  //   Shown on the node map and in staged-descent routing copy so the learner
+  //   never sees a raw English slug like "addition within 20".
+  // -------------------------------------------------------------------------
+
+  'node.addition-within-20': 'Додавання в межах 20',
+  'node.unknown-as-missing-addend': 'Пошук невідомого доданка',
+  'node.number-bonds': 'Числові зв’язки',
+  'node.multiplication': 'Множення',
+  'node.fruit-equations': 'Фруктові рівняння',
+  'node.fraction-simplification': 'Скорочення дробів',
+
   'nav.nodeMap': 'Карта тем',
   'nav.task': 'Завдання',
   'nav.settings': 'Налаштування',

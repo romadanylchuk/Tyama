@@ -218,6 +218,17 @@ const en: CatalogResource = {
   // nav.* — Navigation / shell chrome (ordinary)
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // node.* — Localized skill-node display names (keyed by node slug).
+  // -------------------------------------------------------------------------
+
+  'node.addition-within-20': 'Addition within 20',
+  'node.unknown-as-missing-addend': 'Finding the missing addend',
+  'node.number-bonds': 'Number bonds',
+  'node.multiplication': 'Multiplication',
+  'node.fruit-equations': 'Fruit equations',
+  'node.fraction-simplification': 'Fraction simplification',
+
   'nav.nodeMap': 'Skill Map',
   'nav.task': 'Task',
   'nav.settings': 'Settings',
