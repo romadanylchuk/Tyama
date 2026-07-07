@@ -58,6 +58,7 @@ import type {
 } from '@/checking';
 import { checkAnswer } from '@/checking';
 import type { GeneratedTask, GraphDefinition, NodeId } from '@/core/types';
+import { hasGenerator } from '@/core/generators/registry';
 import {
   DEFAULT_MASTERY_CONFIG,
   resolveMasteryConfig,
@@ -239,18 +240,28 @@ export class SessionController {
       lastApproach: task.representation,
     });
 
+    // Is the routed-to target actually practicable? A coming-soon node (no
+    // generator yet, e.g. 'addition-within-20') cannot serve a task, so
+    // navigating the learner there is a dead end — and because the anti-loop
+    // escalation normally requires a SECOND failure AT the target, an
+    // unpracticeable target would make escalation unreachable and trap the
+    // learner in a fail → "coming soon" → map loop forever.
+    const targetPracticable = hasGenerator(decision.target);
+
     // A genuine reroute away from the failed node is diagnostic debt; staying
     // at the same node (symptom-is-target) is not — it is just another go.
-    if (decision.target !== result.failedStep.skillNode) {
+    // Unpracticeable targets are never debt: whereToNext could only propose a
+    // node the learner cannot open, re-creating the same dead end at app entry.
+    if (decision.target !== result.failedStep.skillNode && targetPracticable) {
       this.diagnosticDebt.add(decision.target);
     }
 
-    if (decision.antiLoop?.escalateToExplanation) {
+    if (decision.antiLoop?.escalateToExplanation || !targetPracticable) {
       const ctx = this.buildExplanationContext(
         task,
         result.failedStep,
         outputs,
-        decision.antiLoop.explanationContext?.priorApproach,
+        decision.antiLoop?.explanationContext?.priorApproach,
         contentLanguage,
         explanationLanguage
       );

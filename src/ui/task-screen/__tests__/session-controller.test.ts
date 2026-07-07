@@ -119,13 +119,18 @@ describe('SessionController.submit', () => {
     expect(motivationRow?.xp).toBe(XP_AWARDS.taskCompletion);
   });
 
-  it("failed-step (single unmastered prerequisite, no tie): routes deterministically and sets diagnostic debt", async () => {
-    // Seed 'unknown-as-missing-addend' as mastered so fruit-equations' descent
-    // has exactly ONE unmastered prerequisite ('addition-within-20') -- no tie.
+  it("failed-step routed to a PRACTICABLE target: 'staged-descent' + diagnostic debt", async () => {
+    // Master both roots so fraction-simplification's descent stops at
+    // fruit-equations — an unmastered prerequisite that HAS a generator.
+    await markMastered('addition-within-20');
     await markMastered('unknown-as-missing-addend');
 
     const controller = new SessionController({ graph: GRAPH_FIXTURE });
-    const step = makeStep({ skillNode: 'fruit-equations', expected: '5' });
+    const step = makeStep({
+      skillNode: 'fraction-simplification',
+      expected: '5',
+      normalizationPolicy: SCALAR_INTEGER_POLICY,
+    });
     const task = makeTask([step]);
     const outputs: WidgetOutput[] = [{ rawInput: '9' }]; // wrong answer -> failed-step
 
@@ -140,14 +145,51 @@ describe('SessionController.submit', () => {
 
     expect(event.kind).toBe('staged-descent');
     if (event.kind === 'staged-descent') {
-      expect(event.target).toBe('addition-within-20');
+      expect(event.target).toBe('fruit-equations');
       expect(event.reason).toBe('deepest-unmastered');
-      expect(event.descentPath).toEqual(['fruit-equations', 'addition-within-20']);
+      expect(event.descentPath).toEqual(['fraction-simplification', 'fruit-equations']);
     }
-    expect(controller.getDiagnosticDebt()).toBe('addition-within-20');
+    expect(controller.getDiagnosticDebt()).toBe('fruit-equations');
 
     // ingestAttempt DID persist a progress row for the failed node.
-    expect(await getProgress('fruit-equations')).not.toBeNull();
+    expect(await getProgress('fraction-simplification')).not.toBeNull();
+  });
+
+  it("failed-step routed to an UNPRACTICEABLE (coming-soon) target: escalates to the explanation provider instead of dead-ending", async () => {
+    // Seed 'unknown-as-missing-addend' as mastered so fruit-equations' descent
+    // has exactly ONE unmastered prerequisite: 'addition-within-20' — a node
+    // with NO generator. Navigating there would strand the learner on the
+    // coming-soon panel on EVERY wrong answer (and the anti-loop escalation
+    // could never fire, since it requires a second failure AT that node).
+    await markMastered('unknown-as-missing-addend');
+
+    const explainCalls: ExplanationRequestContext[] = [];
+    const fakeProvider: ExplanationProvider = {
+      async explain(ctx: ExplanationRequestContext): Promise<ExplanationResult> {
+        explainCalls.push(ctx);
+        return { kind: 'clipboard', promptText: 'fake prompt', status: 'copied' };
+      },
+    };
+    const controller = new SessionController({ graph: GRAPH_FIXTURE, explanationProvider: fakeProvider });
+    const step = makeStep({ skillNode: 'fruit-equations', expected: '5' });
+    const event = await controller.submit({
+      task: makeTask([step]),
+      outputs: [{ rawInput: '9' }],
+      localeProfile: UK_PROFILE,
+      elapsedMs: 1000,
+      contentLanguage: 'uk',
+      explanationLanguage: 'uk',
+    });
+
+    expect(event.kind).toBe('escalation');
+    if (event.kind === 'escalation') {
+      expect(event.result.status).toBe('copied');
+      expect(event.target).toBe('addition-within-20');
+    }
+    expect(explainCalls).toHaveLength(1);
+    // An unpracticeable target is never diagnostic debt — whereToNext could
+    // only propose a node the learner cannot open.
+    expect(controller.getDiagnosticDebt()).toBeNull();
   });
 
   it('a second failure at the just-routed-to root node triggers escalation via the injected ExplanationProvider', async () => {
@@ -162,7 +204,9 @@ describe('SessionController.submit', () => {
     };
     const controller = new SessionController({ graph: GRAPH_FIXTURE, explanationProvider: fakeProvider });
 
-    // First failure at fruit-equations -> routes to addition-within-20.
+    // First failure at fruit-equations -> routes to addition-within-20, which
+    // is generator-less, so this ALREADY escalates (see the unpracticeable-
+    // target test above) and records the anti-loop visit on the target.
     const step1 = makeStep({ skillNode: 'fruit-equations', expected: '5' });
     const task1 = makeTask([step1]);
     await controller.submit({
@@ -173,10 +217,11 @@ describe('SessionController.submit', () => {
       contentLanguage: 'uk',
       explanationLanguage: 'uk',
     });
-    expect(controller.getDiagnosticDebt()).toBe('addition-within-20');
+    expect(explainCalls).toHaveLength(1);
 
     // Second failure -- now directly AT addition-within-20 (a root node with
-    // no further prerequisites) -- route()'s own anti-loop escalates.
+    // no further prerequisites) -- route()'s own anti-loop escalates, and the
+    // context carries priorApproach (what was already tried).
     const step2 = makeStep({ skillNode: 'addition-within-20', expected: '3' });
     const task2 = makeTask([step2]);
     const event2 = await controller.submit({
@@ -194,8 +239,8 @@ describe('SessionController.submit', () => {
       expect(event2.target).toBe('addition-within-20');
     }
 
-    expect(explainCalls).toHaveLength(1);
-    const ctx = explainCalls[0];
+    expect(explainCalls).toHaveLength(2);
+    const ctx = explainCalls[1];
     expect(ctx.contentLanguage).toBe('uk');
     expect(ctx.explanationLanguage).toBe('en');
     expect(ctx.skillNode).toBe('addition-within-20');
@@ -204,10 +249,17 @@ describe('SessionController.submit', () => {
   });
 
   it('a correct outcome clears that node\'s diagnostic debt', async () => {
+    // Master both roots so failing fraction-simplification sets debt on
+    // fruit-equations — a practicable (generator-backed) target.
+    await markMastered('addition-within-20');
     await markMastered('unknown-as-missing-addend');
     const controller = new SessionController({ graph: GRAPH_FIXTURE });
 
-    const failStep = makeStep({ skillNode: 'fruit-equations', expected: '5' });
+    const failStep = makeStep({
+      skillNode: 'fraction-simplification',
+      expected: '5',
+      normalizationPolicy: SCALAR_INTEGER_POLICY,
+    });
     await controller.submit({
       task: makeTask([failStep]),
       outputs: [{ rawInput: '9' }],
@@ -216,12 +268,11 @@ describe('SessionController.submit', () => {
       contentLanguage: 'uk',
       explanationLanguage: 'uk',
     });
-    expect(controller.getDiagnosticDebt()).toBe('addition-within-20');
+    expect(controller.getDiagnosticDebt()).toBe('fruit-equations');
 
     const correctStep = makeStep({
-      skillNode: 'addition-within-20',
+      skillNode: 'fruit-equations',
       expected: '3',
-      normalizationPolicy: SCALAR_INTEGER_POLICY,
     });
     const correctEvent = await controller.submit({
       task: makeTask([correctStep]),
