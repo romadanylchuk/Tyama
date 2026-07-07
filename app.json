@@ -27,6 +27,9 @@
       "expo-localization",
       "expo-status-bar"
     ],
+    "experiments": {
+      "baseUrl": "/Tyama"
+    },
     "newArchEnabled": true
   }
 }
