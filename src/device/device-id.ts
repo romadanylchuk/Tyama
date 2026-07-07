@@ -37,23 +37,29 @@ import { settings } from '@/repositories/settings-repository';
 /**
  * Generate a v4 UUID string.
  *
- * React Native 0.73+ exposes `crypto.randomUUID()` via the Hermes engine.
- * For older environments or Jest (Node.js), we fall back to Node's built-in.
+ * Hermes (RN), browsers, and Node ≥19 (Jest) all expose the global
+ * `crypto.randomUUID()`, so the first branch covers every real environment.
  *
- * We intentionally avoid importing `react-native-get-random-values` (a native
- * module) to keep the device-id module usable in Jest without extra mocking.
+ * The fallback is a dependency-free RFC-4122-shaped v4 built on Math.random —
+ * NEVER `require('crypto')`: Metro resolves requires STATICALLY at bundle
+ * time, so a Node-only require breaks the native JS bundle even inside a
+ * branch that can never execute on device (this failed the iOS CI build).
+ * Math.random is acceptable here: a device id needs uniqueness, not
+ * cryptographic strength, and this module is outside src/core (where the
+ * seeded-rng lint rule applies).
  */
 function generateUUID(): string {
-  // Hermes / modern RN: crypto.randomUUID is available
+  // Hermes / browsers / Node ≥19: crypto.randomUUID is a global.
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
 
-  // Node.js (Jest): use the built-in crypto module.
-  // This branch is only reachable in the test environment.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const nodeCrypto = require('crypto') as typeof import('crypto');
-  return nodeCrypto.randomUUID();
+  // Dependency-free v4-shaped fallback (uniqueness, not crypto strength).
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 // ---------------------------------------------------------------------------
