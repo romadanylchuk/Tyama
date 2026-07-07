@@ -140,6 +140,71 @@ describe('TaskScreen', () => {
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 
+  it('auto-advances the plain correct panel to a fresh task after the pause', async () => {
+    jest.useFakeTimers();
+    try {
+      const onExit = jest.fn();
+      const controller = new SessionController({ graph: GRAPH_FIXTURE });
+      jest.spyOn(controller, 'submit').mockResolvedValue({ kind: 'correct', xpAwarded: 10 });
+
+      const { getByTestId, findByTestId, queryByTestId } = render(
+        <ThemeProvider>
+          <TaskScreen
+            nodeId="number-bonds"
+            controller={controller}
+            onExit={onExit}
+            onNavigate={jest.fn()}
+          />
+        </ThemeProvider>
+      );
+
+      await waitFor(() => expect(getByTestId('task-screen')).toBeTruthy());
+      fireEvent.press(getByTestId('confirm-button'));
+      await findByTestId('task-feedback');
+
+      // The pause elapses → the panel closes itself and a fresh widget mounts.
+      await waitFor(() => {
+        jest.advanceTimersByTime(2000);
+        expect(queryByTestId('task-feedback')).toBeNull();
+      });
+      expect(getByTestId('confirm-button')).toBeTruthy();
+      expect(onExit).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('the mastered panel does NOT auto-advance — it waits for the learner\'s choice', async () => {
+    jest.useFakeTimers();
+    try {
+      await seedAggregate('number-bonds', 0.95);
+      const controller = new SessionController({ graph: GRAPH_FIXTURE });
+      jest.spyOn(controller, 'submit').mockResolvedValue({ kind: 'correct', xpAwarded: 10 });
+
+      const { getByTestId, findByTestId } = render(
+        <ThemeProvider>
+          <TaskScreen
+            nodeId="number-bonds"
+            controller={controller}
+            onExit={jest.fn()}
+            onNavigate={jest.fn()}
+          />
+        </ThemeProvider>
+      );
+
+      await waitFor(() => expect(getByTestId('task-screen')).toBeTruthy());
+      fireEvent.press(getByTestId('confirm-button'));
+      await findByTestId('task-feedback-practice-more');
+
+      // Far past the auto-advance window — the mastered panel must still be up.
+      jest.advanceTimersByTime(10000);
+      expect(getByTestId('task-feedback')).toBeTruthy();
+      expect(getByTestId('task-feedback-practice-more')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('mastered panel offers "one more" — voluntary repetition never exits', async () => {
     await seedAggregate('number-bonds', 0.95);
     const onExit = jest.fn();

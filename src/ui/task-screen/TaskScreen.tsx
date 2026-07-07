@@ -81,6 +81,13 @@ export interface TaskScreenProps {
 
 
 /**
+ * How long the plain correct-answer panel stays before auto-advancing to the
+ * next task (ms). Long enough to read "✓ + XP + progress gain", short enough
+ * to keep a fluency-drill rhythm. "Далі" skips the wait.
+ */
+const CORRECT_AUTO_ADVANCE_MS = 1800;
+
+/**
  * Display form of a learner's widget answer for the solved-step recap.
  * The tokens widget space-joins its digit tokens (so the locale parser can strip
  * group separators); collapse that whitespace back into the plain number so the
@@ -280,6 +287,21 @@ export function TaskScreen({
   const handlePracticeMore = useCallback((): void => {
     generateTask();
   }, [generateTask]);
+
+  // Auto-advance the PLAIN correct panel: a "✓" confirmation needs a beat to
+  // register, not a click. Scoped deliberately — the mastered panel (a
+  // choice), staged-descent (routing info), escalation (clipboard handoff)
+  // and parse hints (format guidance) all stay manual. "Далі" still works
+  // for an instant skip during the pause.
+  useEffect(() => {
+    if (viewEvent?.kind !== 'correct' || nodeMastered) return;
+    const timer = setTimeout(() => {
+      handleContinue();
+    }, CORRECT_AUTO_ADVANCE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [viewEvent, nodeMastered, handleContinue]);
 
   if (!node) {
     return (
