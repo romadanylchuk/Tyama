@@ -13,10 +13,11 @@
  *   canonical string into a concrete, mode-specific `WidgetConfig`.
  *
  * PURE, DETERMINISTIC, TESTABLE WITHOUT RN:
- *   No randomness (deliberately NOT `Math.random()` — distractors are derived
- *   by fixed offset from the canonical answer and sorted ascending), no I/O,
- *   no clock. Same `(task, step, contentLanguage, masteryConfig)` in →
- *   byte-identical `WidgetConfig` out.
+ *   No randomness (deliberately NOT `Math.random()` — the correct option's
+ *   slot is derived from a hash of the step's own content, and distractors
+ *   fill the remaining slots of a contiguous ascending run), no I/O, no clock.
+ *   Same `(task, step, contentLanguage, masteryConfig)` in → byte-identical
+ *   `WidgetConfig` out.
  *
  * NUMERIC LABELS AS LOCALE-INVARIANT LocalizedRef KEYS (implementation-shape
  * decision):
@@ -100,27 +101,43 @@ function deriveFinalOnly(
 // ---------------------------------------------------------------------------
 
 /**
- * Deterministically synthesize up to 3 distinct distractors around the
- * canonical numeric answer, then sort the full option set (answer +
- * distractors) ascending. NEVER uses randomness — same `step.expected` always
- * produces the same option set.
+ * FNV-1a 32-bit string hash. Gives the choice synthesis a source of
+ * per-step variation WITHOUT `Math.random()`: the same step content always
+ * hashes the same, so the module's purity contract holds.
+ */
+function hashString(input: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Deterministically synthesize the 4-option choice set: the correct answer's
+ * slot (0..3) is derived from a hash of the step's prompt + expected value —
+ * varying task-to-task so the answer is never predictably in one position —
+ * and the 3 distractors fill the remaining slots of a contiguous ascending
+ * integer run around it. NEVER uses randomness — same step always produces
+ * the same option set.
  */
 function buildChoiceOptions(step: Step): ChoiceOption[] {
   const correctValue = Number(step.expected);
-  const OFFSETS = [-2, -1, 1, 2] as const;
+  const OPTION_COUNT = 4;
 
-  const values = new Set<number>([correctValue]);
-  for (const offset of OFFSETS) {
-    if (values.size >= 4) break; // correct answer + 3 distractors
-    values.add(correctValue + offset);
-  }
+  const seed = hashString(
+    `${step.prompt.key}|${JSON.stringify(step.prompt.vars ?? {})}|${step.expected}`
+  );
+  const answerIndex = seed % OPTION_COUNT;
 
-  return [...values]
-    .sort((a, b) => a - b)
-    .map((value) => ({
+  return Array.from({ length: OPTION_COUNT }, (_, i) => {
+    const value = correctValue + (i - answerIndex);
+    return {
       id: String(value),
       label: { key: String(value) },
-    }));
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

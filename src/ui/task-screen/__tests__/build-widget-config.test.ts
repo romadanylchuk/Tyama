@@ -101,6 +101,24 @@ describe('buildWidgetConfig', () => {
     expect(config2).toEqual(config1);
   });
 
+  it('choice mode: the correct answer position varies across steps (not always the same slot)', () => {
+    const answerIndices = new Set<number>();
+    for (let expected = 1; expected <= 20; expected++) {
+      const step = makeStep({
+        inputMode: 'choice',
+        expected: String(expected),
+        normalizationPolicy: SCALAR_INTEGER_POLICY,
+        prompt: { key: 'test.step', vars: { whole: expected + 2, known: 2 } },
+      });
+      const task = makeTask([step]);
+      const config = buildWidgetConfig(task, step, 'uk') as ChoiceWidgetConfig;
+      expect(config.options).toHaveLength(4);
+      answerIndices.add(config.options.findIndex((o) => o.id === String(expected)));
+    }
+    // Across 20 different tasks the answer must not sit in a single fixed slot.
+    expect(answerIndices.size).toBeGreaterThan(1);
+  });
+
   it('tokens mode (decimal numberClass): palette includes digits, sign, and the decimal glyph', () => {
     const step = makeStep({
       inputMode: 'tokens',
