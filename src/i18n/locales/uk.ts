@@ -372,7 +372,7 @@ const uk: CatalogResource = {
 
   'fruit_eq.problem.unknowns_1': 'Рівняння: {{coeff}} × 🍎 = {{total}}.',
   'fruit_eq.problem.unknowns_2':
-    'Рівняння:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}',
+    'Рівняння:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}\nЗнайди 🍎, потім 🍌.',
   'fruit_eq.step.apple': 'Скільки становить 🍎?',
   'fruit_eq.step.banana': 'Скільки становить 🍌?',
 

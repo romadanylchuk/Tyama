@@ -302,7 +302,7 @@ const en: CatalogResource = {
 
   'fruit_eq.problem.unknowns_1': 'Equation: {{coeff}} × 🍎 = {{total}}.',
   'fruit_eq.problem.unknowns_2':
-    'Equations:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}',
+    'Equations:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}\nFind 🍎, then 🍌.',
   'fruit_eq.step.apple': 'What is 🍎?',
   'fruit_eq.step.banana': 'What is 🍌?',
 
