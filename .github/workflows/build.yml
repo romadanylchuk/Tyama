@@ -1,0 +1,111 @@
+# Build pipeline: verify, then produce installable mobile builds as artifacts.
+#
+# ANDROID: a debug-signed APK — directly installable on any device/emulator
+#   (enable "install from unknown sources"). Built with the standard debug
+#   keystore; a Play-Store release build needs a real keystore added as repo
+#   secrets and a `assembleRelease` signing config (not set up here).
+#
+# IOS: an UNSIGNED simulator .app (zip) — runs in the iOS Simulator
+#   (`xcrun simctl install booted Tyama.app`). A real-device IPA requires an
+#   Apple Developer account + signing certificates; the standard path for that
+#   is EAS Build (`eas build --platform ios`) with an EXPO_TOKEN secret.
+#
+# The native projects are generated fresh in CI via `expo prebuild` (CNG —
+# android/ and ios/ are gitignored by design).
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck / Lint / Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npx eslint .
+      - name: Test
+        run: npx jest --ci
+
+  android:
+    name: Android APK (debug-signed, installable)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate the native Android project (CNG)
+        run: npx expo prebuild --platform android --no-install
+      - name: Build debug APK
+        run: cd android && ./gradlew assembleDebug --no-daemon
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tyama-android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+  ios:
+    name: iOS simulator app (unsigned)
+    runs-on: macos-15
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate the native iOS project (CNG)
+        run: npx expo prebuild --platform ios --no-install
+      - name: Install CocoaPods
+        run: npx pod-install ios
+      - name: Build for the iOS Simulator (no code signing)
+        run: |
+          xcodebuild \
+            -workspace ios/Tyama.xcworkspace \
+            -scheme Tyama \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+      - name: Zip the .app bundle
+        run: |
+          cd ios/build/Build/Products/Release-iphonesimulator
+          zip -ry tyama-ios-simulator.zip Tyama.app
+      - name: Upload simulator app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tyama-ios-simulator
+          path: ios/build/Build/Products/Release-iphonesimulator/tyama-ios-simulator.zip
+          retention-days: 14
+          if-no-files-found: error
