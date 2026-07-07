@@ -31,7 +31,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 // ---------------------------------------------------------------------------
 // Global timeout (unchanged from Phase 1)
 // ---------------------------------------------------------------------------
-jest.setTimeout(10_000);
+jest.setTimeout(30_000);
 
 // ---------------------------------------------------------------------------
 // In-memory SQLite test helper

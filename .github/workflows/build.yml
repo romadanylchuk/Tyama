@@ -61,15 +61,6 @@ jobs:
         run: npm ci
       - name: Generate the native Android project (CNG)
         run: npx expo prebuild --platform android --no-install
-      - name: Pin Gradle 8.13 (RN 0.79's supported Gradle)
-        # The generated wrapper points at Gradle 9.x, whose gradle-api jars
-        # carry Kotlin 2.2 metadata that the RN gradle-plugin's Kotlin 2.0
-        # compiler cannot read ("Module was compiled with an incompatible
-        # version of Kotlin"). Pin the wrapper to the supported 8.13 pairing.
-        run: |
-          sed -i 's#^distributionUrl=.*#distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-bin.zip#' \
-            android/gradle/wrapper/gradle-wrapper.properties
-          cat android/gradle/wrapper/gradle-wrapper.properties
       - name: Build debug APK
         run: cd android && ./gradlew assembleDebug --no-daemon
       - name: Upload APK artifact

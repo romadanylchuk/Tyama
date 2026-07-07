@@ -178,6 +178,7 @@ export function TaskScreen({
 
   useEffect(() => {
     if (!mastery.loading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate one-shot initial generation once mastery loads; generateTask guards its own re-entry.
       generateTask();
     }
     // Re-generate only when the target node or the mastery-loading gate
@@ -475,6 +476,7 @@ export function TaskScreen({
           onPracticeMore={handlePracticeMore}
         />
       ) : (
+        // eslint-disable-next-line react-hooks/static-components -- Widget is a STABLE component looked up from the widget registry by inputMode, not created during render.
         <Widget config={activeWidgetConfig} onOutput={handleWidgetOutput} />
       )}
     </View>

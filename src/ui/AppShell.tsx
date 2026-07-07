@@ -20,14 +20,14 @@
  *     library needed for the MVP shell — matches the plan's explicit choice).
  *
  * SESSION-SCOPED CONTROLLER, ONE PER SHELL MOUNT:
- *   A single `SessionController` instance is created once (via `useRef`) and
+ *   A single `SessionController` instance is created once (lazy `useState`) and
  *   threaded into every `TaskScreen` mount for the shell's lifetime, so its
  *   `AntiLoopMemory`/`diagnosticDebt` persist across a "practice this now"
  *   staged-descent navigation and across repeated tasks on the same node —
  *   but are discarded (never persisted) the moment the shell itself unmounts.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import type { GraphDefinition, NodeId } from '@/core/types';
@@ -138,10 +138,10 @@ function AppShellContent(): React.JSX.Element {
     readonly recommended: NodeId | null;
     readonly due: ReadonlySet<NodeId>;
   }>({ recommended: null, due: new Set() });
-  const controllerRef = useRef<SessionController | null>(null);
-  if (controllerRef.current === null) {
-    controllerRef.current = new SessionController({ graph: loadGraph() });
-  }
+  // One SessionController per shell mount — a lazy useState initializer (runs
+  // exactly once) keeps AntiLoopMemory/diagnosticDebt session-scoped without
+  // reading a ref during render (react-hooks/refs).
+  const [controller] = useState(() => new SessionController({ graph: loadGraph() }));
 
   useEffect(() => {
     if (screen.kind !== 'node-map') return;
@@ -149,7 +149,7 @@ function AppShellContent(): React.JSX.Element {
     void (async (): Promise<void> => {
       try {
         const dueRows = await getDueNodes(Date.now());
-        const recommended = await computeEntryNode(loadGraph(), controllerRef.current!);
+        const recommended = await computeEntryNode(loadGraph(), controller);
         if (!cancelled) {
           setMapGuidance({ recommended, due: new Set(dueRows.map((r) => r.nodeId)) });
         }
@@ -164,7 +164,7 @@ function AppShellContent(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [screen]);
+  }, [screen, controller]);
 
   // Resolves the post-onboarding / returning-learner screen: the same
   // validate-then-compute-entry sequence, shared by the initial mount effect
@@ -178,13 +178,13 @@ function AppShellContent(): React.JSX.Element {
     // `entry === null`.
     let entry: NodeId | null = null;
     try {
-      entry = await computeEntryNode(graph, controllerRef.current!);
+      entry = await computeEntryNode(graph, controller);
     } catch (err) {
       console.warn('[AppShell] entry-node computation failed (non-fatal, falling back to node-map):', err);
       entry = null;
     }
     return entry !== null ? { kind: 'task', nodeId: entry } : { kind: 'node-map' };
-  }, []);
+  }, [controller]);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,7 +267,7 @@ function AppShellContent(): React.JSX.Element {
   return (
     <TaskScreen
       nodeId={screen.nodeId}
-      controller={controllerRef.current}
+      controller={controller}
       onExit={handleExit}
       onNavigate={handleNavigate}
     />

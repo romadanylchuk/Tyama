@@ -376,6 +376,7 @@ export function PlacementScreen({
         </Text>
       )}
 
+      {/* eslint-disable-next-line react-hooks/static-components -- Widget is a STABLE component looked up from the widget registry by inputMode, not created during render. */}
       <Widget config={activeWidgetConfig} onOutput={handleWidgetOutput} />
 
       <TouchableOpacity

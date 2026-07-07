@@ -50,6 +50,7 @@ useTestDb();
 let captured: ThemeContextValue | null = null;
 
 function Probe(): React.JSX.Element {
+  // eslint-disable-next-line react-hooks/globals -- test-only capture probe; reassigning the module-level holder is the point.
   captured = useTheme();
   return <Text>{captured.persona}</Text>;
 }

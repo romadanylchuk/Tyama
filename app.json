@@ -24,7 +24,8 @@
       "expo-sqlite",
       "expo-sharing",
       "expo-file-system",
-      "expo-localization"
+      "expo-localization",
+      "expo-status-bar"
     ],
     "newArchEnabled": true
   }
