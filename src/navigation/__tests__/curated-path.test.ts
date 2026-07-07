@@ -7,7 +7,8 @@
  *   - a path proposing a `coming-soon` node → violation.
  *
  * NOTE: every GRAPH_FIXTURE node is generator-backed as of graphVersion 0.2.1
- * (addition-within-20 and unknown-as-missing-addend gained generators), so
+ * (addition-within-20 and unknown-as-missing-addend gained generators; still
+ * true at graphVersion 0.3.0, which only adds further generator-backed nodes), so
  * the fixture itself no longer has a naturally-occurring 'coming-soon' node.
  * The coming-soon test below augments the fixture with a synthetic
  * generator-less node ('ghost-foundation') to exercise that guard.

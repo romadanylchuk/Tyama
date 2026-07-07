@@ -75,11 +75,12 @@ function makeTestGraph(version: string = '0.2.0'): GraphDefinition {
 // ---------------------------------------------------------------------------
 
 describe('GRAPH_MIGRATIONS', () => {
-  it('has exactly two entries keyed by "0.1.0" and "0.2.0"', () => {
+  it('has exactly three entries keyed by "0.1.0", "0.2.0", and "0.2.1"', () => {
     expect(typeof GRAPH_MIGRATIONS).toBe('object');
-    expect(Object.keys(GRAPH_MIGRATIONS)).toHaveLength(2);
+    expect(Object.keys(GRAPH_MIGRATIONS)).toHaveLength(3);
     expect(Object.keys(GRAPH_MIGRATIONS)).toContain('0.1.0');
     expect(Object.keys(GRAPH_MIGRATIONS)).toContain('0.2.0');
+    expect(Object.keys(GRAPH_MIGRATIONS)).toContain('0.2.1');
   });
 
   it('GRAPH_MIGRATIONS["0.1.0"] is an empty array (no-op: nodes added, none renamed)', () => {
@@ -88,6 +89,10 @@ describe('GRAPH_MIGRATIONS', () => {
 
   it('GRAPH_MIGRATIONS["0.2.0"] is an empty array (no-op: generators/bands added, none renamed)', () => {
     expect(GRAPH_MIGRATIONS['0.2.0']).toEqual([]);
+  });
+
+  it('GRAPH_MIGRATIONS["0.2.1"] is an empty array (no-op: six new nodes added, none renamed)', () => {
+    expect(GRAPH_MIGRATIONS['0.2.1']).toEqual([]);
   });
 
   it('GRAPH_MIGRATIONS[""] is undefined (no ops for first-run from empty)', () => {

@@ -2,7 +2,7 @@
  * load-graph.test.ts — Tests for `loadGraph()` and the GRAPH_FIXTURE asset.
  *
  * Verifies:
- *   - `loadGraph()` returns a valid `GraphDefinition` with `graphVersion '0.2.1'`.
+ *   - `loadGraph()` returns a valid `GraphDefinition` with `graphVersion '0.3.0'`.
  *   - The returned graph has `fixture: true`.
  *   - All six expected nodes are present with correct IDs and prerequisite edges.
  *   - The fixture flag triggers a `console.warn` (fixture guard).
@@ -29,9 +29,9 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('loadGraph() — basic shape', () => {
-  it('returns a GraphDefinition with graphVersion "0.2.1"', () => {
+  it('returns a GraphDefinition with graphVersion "0.3.0"', () => {
     const graph = loadGraph();
-    expect(graph.graphVersion).toBe('0.2.1');
+    expect(graph.graphVersion).toBe('0.3.0');
   });
 
   it('returns a graph with fixture: true', () => {
@@ -39,9 +39,9 @@ describe('loadGraph() — basic shape', () => {
     expect(graph.fixture).toBe(true);
   });
 
-  it('returns exactly 6 nodes', () => {
+  it('returns exactly 12 nodes', () => {
     const graph = loadGraph();
-    expect(graph.nodes).toHaveLength(6);
+    expect(graph.nodes).toHaveLength(12);
   });
 
   it('nodes array is non-empty', () => {
@@ -102,6 +102,55 @@ describe('loadGraph() — node IDs', () => {
     expect(node!.prerequisites).toContain('fruit-equations');
     expect(node!.prerequisites).toHaveLength(1);
   });
+
+  it('includes subtraction-within-20 with prerequisite addition-within-20', () => {
+    const graph = loadGraph();
+    const node = graph.nodes.find((n) => n.id === 'subtraction-within-20');
+    expect(node).toBeDefined();
+    expect(node!.prerequisites).toContain('addition-within-20');
+    expect(node!.prerequisites).toHaveLength(1);
+  });
+
+  it('includes place-value with prerequisite addition-within-20', () => {
+    const graph = loadGraph();
+    const node = graph.nodes.find((n) => n.id === 'place-value');
+    expect(node).toBeDefined();
+    expect(node!.prerequisites).toContain('addition-within-20');
+    expect(node!.prerequisites).toHaveLength(1);
+  });
+
+  it('includes division with prerequisite multiplication', () => {
+    const graph = loadGraph();
+    const node = graph.nodes.find((n) => n.id === 'division');
+    expect(node).toBeDefined();
+    expect(node!.prerequisites).toContain('multiplication');
+    expect(node!.prerequisites).toHaveLength(1);
+  });
+
+  it('includes rounding with prerequisite place-value', () => {
+    const graph = loadGraph();
+    const node = graph.nodes.find((n) => n.id === 'rounding');
+    expect(node).toBeDefined();
+    expect(node!.prerequisites).toContain('place-value');
+    expect(node!.prerequisites).toHaveLength(1);
+  });
+
+  it('includes word-problems with prerequisites multiplication and subtraction-within-20', () => {
+    const graph = loadGraph();
+    const node = graph.nodes.find((n) => n.id === 'word-problems');
+    expect(node).toBeDefined();
+    expect(node!.prerequisites).toContain('multiplication');
+    expect(node!.prerequisites).toContain('subtraction-within-20');
+    expect(node!.prerequisites).toHaveLength(2);
+  });
+
+  it('includes decimal-comparison with prerequisite place-value', () => {
+    const graph = loadGraph();
+    const node = graph.nodes.find((n) => n.id === 'decimal-comparison');
+    expect(node).toBeDefined();
+    expect(node!.prerequisites).toContain('place-value');
+    expect(node!.prerequisites).toHaveLength(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -156,7 +205,7 @@ describe('loadGraph() — fixture guard', () => {
 
   it('warn message includes the graphVersion', () => {
     loadGraph();
-    expect(warnSpy.mock.calls[0][0]).toContain('0.2.1');
+    expect(warnSpy.mock.calls[0][0]).toContain('0.3.0');
   });
 });
 

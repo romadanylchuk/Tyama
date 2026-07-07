@@ -206,7 +206,10 @@ describe('A streak miss is a silent hold, never a decrease/reset, in rendered ch
     );
 
     // The rendered streak chrome reflects the held value, not a reset.
-    await waitFor(() => expect(getByText(/2/)).toBeTruthy());
+    // NOTE: uses a standalone-digit word-boundary match — several node
+    // display names now contain "20" (e.g. "addition/subtraction within 20"),
+    // which a loose /2/ pattern would also match, making the query ambiguous.
+    await waitFor(() => expect(getByText(/\b2\b/)).toBeTruthy());
     expectNoShameVocabulary(queryByText);
   });
 });

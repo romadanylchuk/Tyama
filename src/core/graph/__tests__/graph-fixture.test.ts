@@ -1,17 +1,20 @@
 /**
- * graph-fixture.test.ts — Phase 7 end-to-end tests for the 6-node fixture.
+ * graph-fixture.test.ts — Phase 7 end-to-end tests for the 12-node fixture.
  *
  * Verifies:
- *   - graphVersion === '0.2.1' (graph-content axis bump).
+ *   - graphVersion === '0.3.0' (graph-content axis bump).
  *   - The three stage-05 nodes (number-bonds, multiplication, fraction-simplification)
  *     exist with the expected prerequisites, representationLevels, and band ladders.
  *   - The two foundation nodes (addition-within-20, unknown-as-missing-addend)
  *     exist with the expected prerequisites, representationLevels, and band ladders.
+ *   - The six graphVersion-0.3.0 nodes (subtraction-within-20, place-value,
+ *     division, rounding, word-problems, decimal-comparison) exist with the
+ *     expected prerequisites, representationLevels, and band ladders.
  *   - Each node's band ladder starts at minCoordinate 0 and is strictly ascending.
  *   - validateGraph(GRAPH_FIXTURE) passes (acyclic DAG, valid bands, unique ids).
- *   - assertEveryGeneratorHasNode(GRAPH_FIXTURE, GENERATORS) passes (all 6 generator
+ *   - assertEveryGeneratorHasNode(GRAPH_FIXTURE, GENERATORS) passes (all 12 generator
  *     keys have matching nodes — every fixture node is now generator-backed).
- *   - resolveAvailability reports 6 'available' nodes (0 'coming-soon').
+ *   - resolveAvailability reports 12 'available' nodes (0 'coming-soon').
  *   - End-to-end per-generator: loadGraph → selectBand → getGenerator(slug).generate(...)
  *     produces correct tasks for each of the 5 non-fruit-equations generators.
  *   - Two version axes: DB_SCHEMA_VERSION / user_version is NEVER touched here.
@@ -44,16 +47,16 @@ afterAll(() => {
 // ---------------------------------------------------------------------------
 
 describe('GRAPH_FIXTURE — graphVersion', () => {
-  it('graphVersion is "0.2.1" (graph-content axis, not DB schema)', () => {
-    expect(GRAPH_FIXTURE.graphVersion).toBe('0.2.1');
+  it('graphVersion is "0.3.0" (graph-content axis, not DB schema)', () => {
+    expect(GRAPH_FIXTURE.graphVersion).toBe('0.3.0');
   });
 
   it('fixture flag is still true (smoke-test fixture, not MVP catalog)', () => {
     expect(GRAPH_FIXTURE.fixture).toBe(true);
   });
 
-  it('has 6 nodes total', () => {
-    expect(GRAPH_FIXTURE.nodes).toHaveLength(6);
+  it('has 12 nodes total', () => {
+    expect(GRAPH_FIXTURE.nodes).toHaveLength(12);
   });
 });
 
@@ -354,6 +357,254 @@ describe('GRAPH_FIXTURE — unknown-as-missing-addend node', () => {
 });
 
 // ---------------------------------------------------------------------------
+// New node (graphVersion 0.3.0): subtraction-within-20
+// ---------------------------------------------------------------------------
+
+describe('GRAPH_FIXTURE — subtraction-within-20 node', () => {
+  const getNode = () => GRAPH_FIXTURE.nodes.find((n) => n.id === 'subtraction-within-20');
+
+  it('exists in the fixture', () => {
+    expect(getNode()).toBeDefined();
+  });
+
+  it('has prerequisite: addition-within-20', () => {
+    const node = getNode()!;
+    expect(node.prerequisites).toContain('addition-within-20');
+    expect(node.prerequisites).toHaveLength(1);
+  });
+
+  it('has representationLevels: concrete, pictorial, abstract', () => {
+    const node = getNode()!;
+    expect(node.representationLevels).toEqual(['concrete', 'pictorial', 'abstract']);
+  });
+
+  it('has 3 difficulty bands, strictly ascending, starting at 0', () => {
+    const node = getNode()!;
+    const bands = node.difficultyHooks.bands;
+    expect(bands).toHaveLength(3);
+    expect(bands[0].minCoordinate).toBe(0);
+    for (let i = 1; i < bands.length; i++) {
+      expect(bands[i].minCoordinate).toBeGreaterThan(bands[i - 1].minCoordinate);
+    }
+  });
+
+  it('each band carries a maxTotal param', () => {
+    const node = getNode()!;
+    for (const band of node.difficultyHooks.bands) {
+      const params = band.params as { maxTotal: number };
+      expect(typeof params.maxTotal).toBe('number');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New node (graphVersion 0.3.0): place-value
+// ---------------------------------------------------------------------------
+
+describe('GRAPH_FIXTURE — place-value node', () => {
+  const getNode = () => GRAPH_FIXTURE.nodes.find((n) => n.id === 'place-value');
+
+  it('exists in the fixture', () => {
+    expect(getNode()).toBeDefined();
+  });
+
+  it('has prerequisite: addition-within-20', () => {
+    const node = getNode()!;
+    expect(node.prerequisites).toContain('addition-within-20');
+    expect(node.prerequisites).toHaveLength(1);
+  });
+
+  it('has representationLevels: concrete, abstract', () => {
+    const node = getNode()!;
+    expect(node.representationLevels).toEqual(['concrete', 'abstract']);
+  });
+
+  it('has 2 difficulty bands, strictly ascending, starting at 0', () => {
+    const node = getNode()!;
+    const bands = node.difficultyHooks.bands;
+    expect(bands).toHaveLength(2);
+    expect(bands[0].minCoordinate).toBe(0);
+    for (let i = 1; i < bands.length; i++) {
+      expect(bands[i].minCoordinate).toBeGreaterThan(bands[i - 1].minCoordinate);
+    }
+  });
+
+  it('each band carries a maxTens param', () => {
+    const node = getNode()!;
+    for (const band of node.difficultyHooks.bands) {
+      const params = band.params as { maxTens: number };
+      expect(typeof params.maxTens).toBe('number');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New node (graphVersion 0.3.0): division
+// ---------------------------------------------------------------------------
+
+describe('GRAPH_FIXTURE — division node', () => {
+  const getNode = () => GRAPH_FIXTURE.nodes.find((n) => n.id === 'division');
+
+  it('exists in the fixture', () => {
+    expect(getNode()).toBeDefined();
+  });
+
+  it('has prerequisite: multiplication', () => {
+    const node = getNode()!;
+    expect(node.prerequisites).toContain('multiplication');
+    expect(node.prerequisites).toHaveLength(1);
+  });
+
+  it('has representationLevels: abstract only (no CPA variation)', () => {
+    const node = getNode()!;
+    expect(node.representationLevels).toEqual(['abstract']);
+  });
+
+  it('has 2 difficulty bands, strictly ascending, starting at 0', () => {
+    const node = getNode()!;
+    const bands = node.difficultyHooks.bands;
+    expect(bands).toHaveLength(2);
+    expect(bands[0].minCoordinate).toBe(0);
+    for (let i = 1; i < bands.length; i++) {
+      expect(bands[i].minCoordinate).toBeGreaterThan(bands[i - 1].minCoordinate);
+    }
+  });
+
+  it('each band carries a tableMax param', () => {
+    const node = getNode()!;
+    for (const band of node.difficultyHooks.bands) {
+      const params = band.params as { tableMax: number };
+      expect(typeof params.tableMax).toBe('number');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New node (graphVersion 0.3.0): rounding
+// ---------------------------------------------------------------------------
+
+describe('GRAPH_FIXTURE — rounding node', () => {
+  const getNode = () => GRAPH_FIXTURE.nodes.find((n) => n.id === 'rounding');
+
+  it('exists in the fixture', () => {
+    expect(getNode()).toBeDefined();
+  });
+
+  it('has prerequisite: place-value', () => {
+    const node = getNode()!;
+    expect(node.prerequisites).toContain('place-value');
+    expect(node.prerequisites).toHaveLength(1);
+  });
+
+  it('has representationLevels: pictorial, abstract', () => {
+    const node = getNode()!;
+    expect(node.representationLevels).toEqual(['pictorial', 'abstract']);
+  });
+
+  it('has 2 difficulty bands, strictly ascending, starting at 0', () => {
+    const node = getNode()!;
+    const bands = node.difficultyHooks.bands;
+    expect(bands).toHaveLength(2);
+    expect(bands[0].minCoordinate).toBe(0);
+    for (let i = 1; i < bands.length; i++) {
+      expect(bands[i].minCoordinate).toBeGreaterThan(bands[i - 1].minCoordinate);
+    }
+  });
+
+  it('each band carries a maxBase param', () => {
+    const node = getNode()!;
+    for (const band of node.difficultyHooks.bands) {
+      const params = band.params as { maxBase: number };
+      expect(typeof params.maxBase).toBe('number');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New node (graphVersion 0.3.0): word-problems
+// ---------------------------------------------------------------------------
+
+describe('GRAPH_FIXTURE — word-problems node', () => {
+  const getNode = () => GRAPH_FIXTURE.nodes.find((n) => n.id === 'word-problems');
+
+  it('exists in the fixture', () => {
+    expect(getNode()).toBeDefined();
+  });
+
+  it('has prerequisites: multiplication, subtraction-within-20', () => {
+    const node = getNode()!;
+    expect(node.prerequisites).toContain('multiplication');
+    expect(node.prerequisites).toContain('subtraction-within-20');
+    expect(node.prerequisites).toHaveLength(2);
+  });
+
+  it('has representationLevels: abstract only', () => {
+    const node = getNode()!;
+    expect(node.representationLevels).toEqual(['abstract']);
+  });
+
+  it('has 2 difficulty bands, strictly ascending, starting at 0', () => {
+    const node = getNode()!;
+    const bands = node.difficultyHooks.bands;
+    expect(bands).toHaveLength(2);
+    expect(bands[0].minCoordinate).toBe(0);
+    for (let i = 1; i < bands.length; i++) {
+      expect(bands[i].minCoordinate).toBeGreaterThan(bands[i - 1].minCoordinate);
+    }
+  });
+
+  it('each band carries maxItems and maxPrice params', () => {
+    const node = getNode()!;
+    for (const band of node.difficultyHooks.bands) {
+      const params = band.params as { maxItems: number; maxPrice: number };
+      expect(typeof params.maxItems).toBe('number');
+      expect(typeof params.maxPrice).toBe('number');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New node (graphVersion 0.3.0): decimal-comparison
+// ---------------------------------------------------------------------------
+
+describe('GRAPH_FIXTURE — decimal-comparison node', () => {
+  const getNode = () => GRAPH_FIXTURE.nodes.find((n) => n.id === 'decimal-comparison');
+
+  it('exists in the fixture', () => {
+    expect(getNode()).toBeDefined();
+  });
+
+  it('has prerequisite: place-value', () => {
+    const node = getNode()!;
+    expect(node.prerequisites).toContain('place-value');
+    expect(node.prerequisites).toHaveLength(1);
+  });
+
+  it('has representationLevels: pictorial, abstract', () => {
+    const node = getNode()!;
+    expect(node.representationLevels).toEqual(['pictorial', 'abstract']);
+  });
+
+  it('has 2 difficulty bands, strictly ascending, starting at 0', () => {
+    const node = getNode()!;
+    const bands = node.difficultyHooks.bands;
+    expect(bands).toHaveLength(2);
+    expect(bands[0].minCoordinate).toBe(0);
+    for (let i = 1; i < bands.length; i++) {
+      expect(bands[i].minCoordinate).toBeGreaterThan(bands[i - 1].minCoordinate);
+    }
+  });
+
+  it('each band carries a maxWhole param', () => {
+    const node = getNode()!;
+    for (const band of node.difficultyHooks.bands) {
+      const params = band.params as { maxWhole: number };
+      expect(typeof params.maxWhole).toBe('number');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Graph integrity: validateGraph passes on the updated fixture
 // ---------------------------------------------------------------------------
 
@@ -368,17 +619,17 @@ describe('validateGraph(GRAPH_FIXTURE)', () => {
 // ---------------------------------------------------------------------------
 
 describe('assertEveryGeneratorHasNode(GRAPH_FIXTURE, GENERATORS)', () => {
-  it('passes without throwing (all 6 generator keys have matching nodes)', () => {
+  it('passes without throwing (all 12 generator keys have matching nodes)', () => {
     expect(() => assertEveryGeneratorHasNode(GRAPH_FIXTURE, GENERATORS)).not.toThrow();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Availability: all 6 nodes available (0 coming-soon)
+// Availability: all 12 nodes available (0 coming-soon)
 // ---------------------------------------------------------------------------
 
 describe('resolveAvailability(GRAPH_FIXTURE)', () => {
-  it('marks all six generator-backed nodes as available', () => {
+  it('marks all twelve generator-backed nodes as available', () => {
     const availability = resolveAvailability(GRAPH_FIXTURE);
     const generatorNodes = [
       'fruit-equations',
@@ -387,6 +638,12 @@ describe('resolveAvailability(GRAPH_FIXTURE)', () => {
       'fraction-simplification',
       'addition-within-20',
       'unknown-as-missing-addend',
+      'subtraction-within-20',
+      'place-value',
+      'division',
+      'rounding',
+      'word-problems',
+      'decimal-comparison',
     ];
     for (const nodeId of generatorNodes) {
       const entry = availability.find((a) => a.nodeId === nodeId);
@@ -395,9 +652,9 @@ describe('resolveAvailability(GRAPH_FIXTURE)', () => {
     }
   });
 
-  it('returns 6 entries total (one per node)', () => {
+  it('returns 12 entries total (one per node)', () => {
     const availability = resolveAvailability(GRAPH_FIXTURE);
-    expect(availability).toHaveLength(6);
+    expect(availability).toHaveLength(12);
   });
 });
 
@@ -760,6 +1017,12 @@ describe('Band coverage — every band of every generator-backed node parses (fu
     'number-bonds',
     'multiplication',
     'fraction-simplification',
+    'subtraction-within-20',
+    'place-value',
+    'division',
+    'rounding',
+    'word-problems',
+    'decimal-comparison',
   ] as const;
 
   it.each(GENERATOR_BACKED_NODE_IDS)('%s: every band index selects and generates without throwing', (nodeId) => {

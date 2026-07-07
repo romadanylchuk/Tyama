@@ -228,6 +228,12 @@ const en: CatalogResource = {
   'node.multiplication': 'Multiplication',
   'node.fruit-equations': 'Fruit equations',
   'node.fraction-simplification': 'Fraction simplification',
+  'node.subtraction-within-20': 'Subtraction within 20',
+  'node.place-value': 'Place value',
+  'node.division': 'Division',
+  'node.rounding': 'Rounding',
+  'node.word-problems': 'Word problems',
+  'node.decimal-comparison': 'Decimal comparison',
 
   'nav.nodeMap': 'Skill Map',
   'nav.task': 'Task',
@@ -340,6 +346,54 @@ const en: CatalogResource = {
   'fruit_eq.recap.apple': '🍎',
   'fruit_eq.recap.banana': '🍌',
   'fruit_eq.recap.cherry': '🍒',
+
+  // -------------------------------------------------------------------------
+  // subtraction_20.* — Subtraction-within-20 generator prompts (vars: m, s).
+  // -------------------------------------------------------------------------
+
+  'subtraction_20.problem': '{{m}} − {{s}} = ?',
+  'subtraction_20.step.difference': 'What is {{m}} minus {{s}}?',
+
+  // -------------------------------------------------------------------------
+  // place_value.* — Place-value generator prompts (vars: n).
+  // -------------------------------------------------------------------------
+
+  'place_value.problem': 'Split {{n}} into tens and ones.',
+  'place_value.step.tens': 'How many tens are in {{n}}?',
+  'place_value.step.ones': 'How many ones are in {{n}}?',
+  'place_value.recap.tens': 'tens',
+  'place_value.recap.ones': 'ones',
+
+  // -------------------------------------------------------------------------
+  // division.* — Division generator prompts (vars: a — divisor, c — dividend).
+  // -------------------------------------------------------------------------
+
+  'division.problem': 'What is {{c}} ÷ {{a}}?',
+  'division.step.quotient': 'What is {{c}} divided by {{a}}?',
+
+  // -------------------------------------------------------------------------
+  // rounding.* — Rounding-to-nearest-10 generator prompts (vars: n).
+  // -------------------------------------------------------------------------
+
+  'rounding.problem': 'Round {{n}} to the nearest 10.',
+  'rounding.step.rounded': 'What is {{n}} rounded to the nearest 10?',
+
+  // -------------------------------------------------------------------------
+  // word_problems.* — Word-problems generator prompts (vars: k, p, m).
+  // -------------------------------------------------------------------------
+
+  'word_problems.problem':
+    'You buy {{k}} items at {{p}} each and pay with {{m}}. How much change do you get?',
+  'word_problems.step.total': 'What is the total cost of {{k}} items at {{p}} each?',
+  'word_problems.step.change': 'What is the change from a payment of {{m}}?',
+  'word_problems.recap.total': 'total',
+
+  // -------------------------------------------------------------------------
+  // decimal_compare.* — Decimal-comparison generator prompts (vars: left, right).
+  // -------------------------------------------------------------------------
+
+  'decimal_compare.problem': 'Which number is larger: {{left}} or {{right}}?',
+  'decimal_compare.step.larger': 'Choose the larger number',
 
   // -------------------------------------------------------------------------
   // widget.* — Answer-widget chrome labels (ordinary).

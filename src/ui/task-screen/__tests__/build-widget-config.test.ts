@@ -18,6 +18,7 @@ import type { GeneratedTask, Step } from '@/core/types';
 import { DEFAULT_MASTERY_CONFIG } from '@/core/mastery/mastery-config';
 import type {
   ChoiceWidgetConfig,
+  CompareWidgetConfig,
   ManipulativeWidgetConfig,
   MultiSlotWidgetConfig,
   NumberWidgetConfig,
@@ -181,6 +182,51 @@ describe('buildWidgetConfig', () => {
     expect(config.mode).toBe('multi-slot');
     expect(config.slots).toHaveLength(2);
     expect(config.slots[0].decimalGlyph).toBe(',');
+  });
+
+  it('compare mode: formats left/right vars per locale (uk comma, en dot)', () => {
+    const step = makeStep({
+      inputMode: 'compare',
+      expected: '3.5',
+      prompt: { key: 'decimal_compare.step.larger', vars: { left: 3.5, right: 3.45 } },
+    });
+    const task = makeTask([step]);
+
+    const ukConfig = buildWidgetConfig(task, step, 'uk') as CompareWidgetConfig;
+    expect(ukConfig.mode).toBe('compare');
+    expect(ukConfig.options).toHaveLength(2);
+    expect(ukConfig.options[0]).toEqual({ id: 'left', display: '3,5' });
+    expect(ukConfig.options[1]).toEqual({ id: 'right', display: '3,45' });
+
+    const enConfig = buildWidgetConfig(task, step, 'en') as CompareWidgetConfig;
+    expect(enConfig.options[0]).toEqual({ id: 'left', display: '3.5' });
+    expect(enConfig.options[1]).toEqual({ id: 'right', display: '3.45' });
+  });
+
+  it('compare mode: preserves generator-decided left/right order (no re-sorting)', () => {
+    // The smaller value can legitimately sit on the left (answer position
+    // varies by seed) — build-widget-config must not reorder by magnitude.
+    const step = makeStep({
+      inputMode: 'compare',
+      expected: '3.5',
+      prompt: { key: 'decimal_compare.step.larger', vars: { left: 3.45, right: 3.5 } },
+    });
+    const task = makeTask([step]);
+    const config = buildWidgetConfig(task, step, 'uk') as CompareWidgetConfig;
+    expect(config.options[0]).toEqual({ id: 'left', display: '3,45' });
+    expect(config.options[1]).toEqual({ id: 'right', display: '3,5' });
+  });
+
+  it('compare mode: pure and deterministic (identical args -> identical config)', () => {
+    const step = makeStep({
+      inputMode: 'compare',
+      expected: '3.5',
+      prompt: { key: 'decimal_compare.step.larger', vars: { left: 3.5, right: 3.45 } },
+    });
+    const task = makeTask([step]);
+    const first = buildWidgetConfig(task, step, 'uk');
+    const second = buildWidgetConfig(task, step, 'uk');
+    expect(second).toEqual(first);
   });
 
   it('is pure: identical arguments always produce a deep-equal WidgetConfig', () => {

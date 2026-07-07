@@ -73,12 +73,14 @@ import type { GeneratedTask, Step } from '@/core/types';
 import {
   keypadDecimalGlyph,
   type ChoiceOption,
+  type CompareOption,
   type ManipulativeModel,
   type NumberWidgetConfig,
   type TokenTile,
   type WidgetConfig,
 } from '@/widgets';
-import { resolveLocaleProfile } from '@/parsing';
+import { resolveLocaleProfile, type LocaleNumericProfile } from '@/parsing';
+import { canonicalize } from '@/core/canonical';
 import { DEFAULT_MASTERY_CONFIG, type MasteryConfig } from '@/core/mastery/mastery-config';
 
 // ---------------------------------------------------------------------------
@@ -146,6 +148,49 @@ function buildTokenPalette(step: Step, contentLanguage: string): TokenTile[] {
 }
 
 // ---------------------------------------------------------------------------
+// compare — two locale-formatted display strings from step.prompt.vars
+// ---------------------------------------------------------------------------
+
+/**
+ * formatLocaleDisplay(value, profile): string
+ *
+ * Renders a scalar as a locale-formatted display string by routing through
+ * `canonicalize()` (the SOLE number→string authority — see @/core/canonical)
+ * and then substituting the locale's decimal separator glyph for the
+ * canonical ASCII '.'. This is a DISPLAY-layer substitution, not a parsing
+ * concern: the inverse direction (string → number) is `parseLocaleNumber`,
+ * which the checking pipeline applies to whatever this function produces.
+ * Never hardcode ',' or '.' — always source the glyph from `profile.decimalSep`.
+ */
+function formatLocaleDisplay(value: number, profile: LocaleNumericProfile): string {
+  const canonical = canonicalize(value);
+  return profile.decimalSep === '.' ? canonical : canonical.replace('.', profile.decimalSep);
+}
+
+/**
+ * buildCompareOptions(step, contentLanguage): CompareOption[]
+ *
+ * Reads the two candidate values from `step.prompt.vars.left` / `.right`
+ * (numbers — the decimal-comparison generator's contract), formats each with
+ * the content-language locale profile's decimal separator, and returns them
+ * in the SAME order the generator emitted them (deterministic: no sorting or
+ * randomness here — the generator already decided which slot holds the
+ * larger value, varying it per seed so the answer is never always the same
+ * position).
+ */
+function buildCompareOptions(step: Step, contentLanguage: string): CompareOption[] {
+  const profile = resolveLocaleProfile(contentLanguage);
+  const vars = step.prompt.vars ?? {};
+  const left = Number(vars.left);
+  const right = Number(vars.right);
+
+  return [
+    { id: 'left', display: formatLocaleDisplay(left, profile) },
+    { id: 'right', display: formatLocaleDisplay(right, profile) },
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // manipulative — derive ManipulativeModel kind from skillNode
 // ---------------------------------------------------------------------------
 
@@ -208,6 +253,8 @@ export function buildWidgetConfig(
       return { mode: 'tokens', palette: buildTokenPalette(step, contentLanguage) };
     case 'manipulative':
       return { mode: 'manipulative', model: buildManipulativeModel(step) };
+    case 'compare':
+      return { mode: 'compare', options: buildCompareOptions(step, contentLanguage) };
     case 'multi-slot': {
       const slots = task.steps
         .filter((s) => s.inputMode === 'multi-slot')

@@ -98,7 +98,7 @@ export interface PlacementConfig {
  * calibrates them later as a pure data change — the mechanism exists now.
  *
  * `ascentChain` walks four of the six generator-backed nodes of the
- * smoke-test fixture (`GRAPH_FIXTURE`, `graphVersion 0.2.1`), foundational
+ * smoke-test fixture (`GRAPH_FIXTURE`, `graphVersion 0.3.0`), foundational
  * first: `number-bonds` (the simplest whole/part atom) before
  * `fruit-equations`, `multiplication`, and `fraction-simplification`.
  * `floorNodeId` matches `ascentChain[0]`.

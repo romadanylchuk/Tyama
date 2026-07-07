@@ -7,8 +7,9 @@
  *     WidgetOutput       — blind output shape (rawInput, inputStructure?, diagnosticPayload?)
  *     WidgetConfig       — discriminated union of per-mode configs
  *     ChoiceWidgetConfig / NumberWidgetConfig / TokensWidgetConfig /
- *     ManipulativeWidgetConfig / MultiSlotWidgetConfig — individual config shapes
- *     ChoiceOption / TokenTile / ManipulativeModel — sub-shapes
+ *     ManipulativeWidgetConfig / MultiSlotWidgetConfig / CompareWidgetConfig —
+ *     individual config shapes
+ *     ChoiceOption / TokenTile / ManipulativeModel / CompareOption — sub-shapes
  *     MultiSlotOutput    — ReadonlyArray<WidgetOutput> for multi-slot
  *     WidgetProps        — { config, onOutput } — the blind component contract
  *     WidgetComponent    — React.ComponentType<WidgetProps>
@@ -19,7 +20,7 @@
  *     keypadDecimalGlyph — single locale→keypad-glyph translation site
  *
  *   Components:
- *     ChoiceWidget / NumberWidget / TokensWidget / ManipulativeWidget
+ *     ChoiceWidget / NumberWidget / TokensWidget / ManipulativeWidget / CompareWidget
  *
  * NOTE: DiagnosticPayload is exported from here and re-exported by @/checking
  * to maintain the one-directional dependency edge (checking imports from
@@ -40,6 +41,8 @@ export type {
   TokenTile,
   ManipulativeModel,
   MultiSlotOutput,
+  CompareWidgetConfig,
+  CompareOption,
   WidgetProps,
   WidgetComponent,
   InputMode,
@@ -53,3 +56,4 @@ export { ChoiceWidget } from './ChoiceWidget';
 export { NumberWidget } from './NumberWidget';
 export { TokensWidget } from './TokensWidget';
 export { ManipulativeWidget } from './ManipulativeWidget';
+export { CompareWidget } from './CompareWidget';

@@ -19,7 +19,8 @@ import type { ReviewItem } from '@/core/spaced-repetition';
  * GRAPH_FIXTURE plus one synthetic generator-less node — used ONLY by the
  * coming-soon curated-fallback test below. Every real GRAPH_FIXTURE node is
  * generator-backed as of graphVersion 0.2.1 (addition-within-20 and
- * unknown-as-missing-addend gained generators), so the fixture no longer has
+ * unknown-as-missing-addend gained generators; still true at graphVersion
+ * 0.3.0, which only adds further generator-backed nodes), so the fixture no longer has
  * a naturally-occurring 'coming-soon' node to exercise that skip-path with.
  */
 const GRAPH_WITH_GHOST: GraphDefinition = {

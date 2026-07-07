@@ -57,6 +57,9 @@ export type RepresentationLevel = 'concrete' | 'pictorial' | 'abstract';
  *   'number'       — single numeric keypad entry (abstract; free input).
  *   'tokens'       — discrete token selection (pictorial; pick fruit tiles).
  *   'multi-slot'   — multi-field entry for ordered multi-value steps.
+ *   'compare'      — pick the larger of exactly two displayed values
+ *                    (decimal-comparison; the learner taps one of two
+ *                    locale-formatted number strings — never a hidden answer).
  *
  * Fruit-equations uses `'tokens'` (pictorial) and `'number'` (abstract).
  */
@@ -65,7 +68,8 @@ export type InputMode =
   | 'choice'
   | 'number'
   | 'tokens'
-  | 'multi-slot';
+  | 'multi-slot'
+  | 'compare';
 
 // ---------------------------------------------------------------------------
 // LocalizedRef / PromptSpec — language-neutral text reference

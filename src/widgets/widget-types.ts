@@ -188,13 +188,40 @@ export type WidgetConfig =
   | NumberWidgetConfig
   | TokensWidgetConfig
   | ManipulativeWidgetConfig
-  | MultiSlotWidgetConfig;
+  | MultiSlotWidgetConfig
+  | CompareWidgetConfig;
 
 /** Config for the multiple-choice selection widget. */
 export interface ChoiceWidgetConfig {
   readonly mode: 'choice';
   /** The options the learner may tap. Exactly one is correct; others are distractors. */
   readonly options: ChoiceOption[];
+}
+
+/**
+ * A single option in a CompareWidget.
+ *
+ * id: stable identifier for this option ('left' | 'right' positionally —
+ *   NOT a correctness marker; the widget is blind to which is the answer).
+ * display: the locale-formatted number string EXACTLY as rendered (e.g. '3,5'
+ *   under 'uk'). This is a raw display string, not a LocalizedRef — a numeral
+ *   reads the same in every locale except for its decimal separator, which
+ *   the caller (build-widget-config) has already substituted via
+ *   resolveLocaleProfile. CompareWidget renders `display` verbatim and, on
+ *   tap, emits it verbatim as `WidgetOutput.rawInput` so the checking
+ *   pipeline's parseLocaleNumber sees exactly what was shown (mirroring
+ *   keypad-typed input).
+ */
+export interface CompareOption {
+  readonly id: string;
+  readonly display: string;
+}
+
+/** Config for the two-value "pick the larger" comparison widget. */
+export interface CompareWidgetConfig {
+  readonly mode: 'compare';
+  /** Exactly two locale-formatted number strings the learner chooses between. */
+  readonly options: CompareOption[];
 }
 
 /** Config for the numeric keypad entry widget. */

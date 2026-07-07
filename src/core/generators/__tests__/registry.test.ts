@@ -5,15 +5,17 @@
  *   - getGenerator returns the generator for a known node, undefined for unknown.
  *   - hasGenerator returns true/false correctly.
  *   - resolveAvailability returns 'available'/'coming-soon' for the fixture graph.
- *   - resolveAvailability returns correct statuses for all 6 fixture nodes
- *     (all 'available' as of graphVersion 0.2.1 — every fixture node is
+ *   - resolveAvailability returns correct statuses for all 12 fixture nodes
+ *     (all 'available' as of graphVersion 0.3.0 — every fixture node is
  *     generator-backed).
  *   - validateRegistry passes for the fixture graph.
  *   - assertEveryGeneratorHasNode throws for a dangling generator.
  *   - Anti-shame vocabulary: status values are only 'available' | 'coming-soon'.
  *   - GENERATORS is frozen (no runtime mutation).
- *   - GENERATORS has 6 entries: fruit-equations + number-bonds + multiplication +
- *     fraction-simplification + addition-within-20 + unknown-as-missing-addend.
+ *   - GENERATORS has 12 entries: fruit-equations + number-bonds + multiplication +
+ *     fraction-simplification + addition-within-20 + unknown-as-missing-addend +
+ *     subtraction-within-20 + place-value + division + rounding + word-problems +
+ *     decimal-comparison.
  */
 
 import { loadGraph } from '../../graph/load-graph';
@@ -90,6 +92,54 @@ describe('getGenerator()', () => {
     expect(typeof gen!.instantiate).toBe('function');
   });
 
+  it('returns the generator for subtraction-within-20', () => {
+    const gen = getGenerator('subtraction-within-20');
+    expect(gen).toBeDefined();
+    expect(gen!.skillNode).toBe('subtraction-within-20');
+    expect(typeof gen!.generate).toBe('function');
+    expect(typeof gen!.instantiate).toBe('function');
+  });
+
+  it('returns the generator for place-value', () => {
+    const gen = getGenerator('place-value');
+    expect(gen).toBeDefined();
+    expect(gen!.skillNode).toBe('place-value');
+    expect(typeof gen!.generate).toBe('function');
+    expect(typeof gen!.instantiate).toBe('function');
+  });
+
+  it('returns the generator for division', () => {
+    const gen = getGenerator('division');
+    expect(gen).toBeDefined();
+    expect(gen!.skillNode).toBe('division');
+    expect(typeof gen!.generate).toBe('function');
+    expect(typeof gen!.instantiate).toBe('function');
+  });
+
+  it('returns the generator for rounding', () => {
+    const gen = getGenerator('rounding');
+    expect(gen).toBeDefined();
+    expect(gen!.skillNode).toBe('rounding');
+    expect(typeof gen!.generate).toBe('function');
+    expect(typeof gen!.instantiate).toBe('function');
+  });
+
+  it('returns the generator for word-problems', () => {
+    const gen = getGenerator('word-problems');
+    expect(gen).toBeDefined();
+    expect(gen!.skillNode).toBe('word-problems');
+    expect(typeof gen!.generate).toBe('function');
+    expect(typeof gen!.instantiate).toBe('function');
+  });
+
+  it('returns the generator for decimal-comparison', () => {
+    const gen = getGenerator('decimal-comparison');
+    expect(gen).toBeDefined();
+    expect(gen!.skillNode).toBe('decimal-comparison');
+    expect(typeof gen!.generate).toBe('function');
+    expect(typeof gen!.instantiate).toBe('function');
+  });
+
   it('returns undefined for an unknown node ID', () => {
     const gen = getGenerator('no-such-node' as string);
     expect(gen).toBeUndefined();
@@ -132,6 +182,30 @@ describe('hasGenerator()', () => {
 
   it('returns true for unknown-as-missing-addend', () => {
     expect(hasGenerator('unknown-as-missing-addend')).toBe(true);
+  });
+
+  it('returns true for subtraction-within-20', () => {
+    expect(hasGenerator('subtraction-within-20')).toBe(true);
+  });
+
+  it('returns true for place-value', () => {
+    expect(hasGenerator('place-value')).toBe(true);
+  });
+
+  it('returns true for division', () => {
+    expect(hasGenerator('division')).toBe(true);
+  });
+
+  it('returns true for rounding', () => {
+    expect(hasGenerator('rounding')).toBe(true);
+  });
+
+  it('returns true for word-problems', () => {
+    expect(hasGenerator('word-problems')).toBe(true);
+  });
+
+  it('returns true for decimal-comparison', () => {
+    expect(hasGenerator('decimal-comparison')).toBe(true);
   });
 
   it('returns false for an arbitrary unknown node', () => {
@@ -194,6 +268,54 @@ describe('resolveAvailability()', () => {
     const graph = loadGraph();
     const availability = resolveAvailability(graph);
     const entry = availability.find((a) => a.nodeId === 'unknown-as-missing-addend');
+    expect(entry).toBeDefined();
+    expect(entry!.status).toBe('available');
+  });
+
+  it('marks subtraction-within-20 as available', () => {
+    const graph = loadGraph();
+    const availability = resolveAvailability(graph);
+    const entry = availability.find((a) => a.nodeId === 'subtraction-within-20');
+    expect(entry).toBeDefined();
+    expect(entry!.status).toBe('available');
+  });
+
+  it('marks place-value as available', () => {
+    const graph = loadGraph();
+    const availability = resolveAvailability(graph);
+    const entry = availability.find((a) => a.nodeId === 'place-value');
+    expect(entry).toBeDefined();
+    expect(entry!.status).toBe('available');
+  });
+
+  it('marks division as available', () => {
+    const graph = loadGraph();
+    const availability = resolveAvailability(graph);
+    const entry = availability.find((a) => a.nodeId === 'division');
+    expect(entry).toBeDefined();
+    expect(entry!.status).toBe('available');
+  });
+
+  it('marks rounding as available', () => {
+    const graph = loadGraph();
+    const availability = resolveAvailability(graph);
+    const entry = availability.find((a) => a.nodeId === 'rounding');
+    expect(entry).toBeDefined();
+    expect(entry!.status).toBe('available');
+  });
+
+  it('marks word-problems as available', () => {
+    const graph = loadGraph();
+    const availability = resolveAvailability(graph);
+    const entry = availability.find((a) => a.nodeId === 'word-problems');
+    expect(entry).toBeDefined();
+    expect(entry!.status).toBe('available');
+  });
+
+  it('marks decimal-comparison as available', () => {
+    const graph = loadGraph();
+    const availability = resolveAvailability(graph);
+    const entry = availability.find((a) => a.nodeId === 'decimal-comparison');
     expect(entry).toBeDefined();
     expect(entry!.status).toBe('available');
   });
@@ -338,14 +460,20 @@ describe('GENERATORS map', () => {
     expect(Object.isFrozen(GENERATORS)).toBe(true);
   });
 
-  it('contains exactly six entries (stage-05 + foundation generators)', () => {
-    expect(Object.keys(GENERATORS)).toHaveLength(6);
+  it('contains exactly twelve entries (stage-05 + foundation + stage-07 generators)', () => {
+    expect(Object.keys(GENERATORS)).toHaveLength(12);
     expect(Object.keys(GENERATORS)).toContain('fruit-equations');
     expect(Object.keys(GENERATORS)).toContain('number-bonds');
     expect(Object.keys(GENERATORS)).toContain('multiplication');
     expect(Object.keys(GENERATORS)).toContain('fraction-simplification');
     expect(Object.keys(GENERATORS)).toContain('addition-within-20');
     expect(Object.keys(GENERATORS)).toContain('unknown-as-missing-addend');
+    expect(Object.keys(GENERATORS)).toContain('subtraction-within-20');
+    expect(Object.keys(GENERATORS)).toContain('place-value');
+    expect(Object.keys(GENERATORS)).toContain('division');
+    expect(Object.keys(GENERATORS)).toContain('rounding');
+    expect(Object.keys(GENERATORS)).toContain('word-problems');
+    expect(Object.keys(GENERATORS)).toContain('decimal-comparison');
   });
 
   it('fruit-equations generator has the correct skillNode', () => {
@@ -370,5 +498,29 @@ describe('GENERATORS map', () => {
 
   it('unknown-as-missing-addend generator has the correct skillNode', () => {
     expect(GENERATORS['unknown-as-missing-addend'].skillNode).toBe('unknown-as-missing-addend');
+  });
+
+  it('subtraction-within-20 generator has the correct skillNode', () => {
+    expect(GENERATORS['subtraction-within-20'].skillNode).toBe('subtraction-within-20');
+  });
+
+  it('place-value generator has the correct skillNode', () => {
+    expect(GENERATORS['place-value'].skillNode).toBe('place-value');
+  });
+
+  it('division generator has the correct skillNode', () => {
+    expect(GENERATORS['division'].skillNode).toBe('division');
+  });
+
+  it('rounding generator has the correct skillNode', () => {
+    expect(GENERATORS['rounding'].skillNode).toBe('rounding');
+  });
+
+  it('word-problems generator has the correct skillNode', () => {
+    expect(GENERATORS['word-problems'].skillNode).toBe('word-problems');
+  });
+
+  it('decimal-comparison generator has the correct skillNode', () => {
+    expect(GENERATORS['decimal-comparison'].skillNode).toBe('decimal-comparison');
   });
 });

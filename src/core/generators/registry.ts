@@ -48,6 +48,12 @@ import { multiplication } from './multiplication';
 import { fractionSimplification } from './fraction-simplification';
 import { additionWithin20 } from './addition-within-20';
 import { unknownAsMissingAddend } from './unknown-as-missing-addend';
+import { subtractionWithin20 } from './subtraction-within-20';
+import { placeValue } from './place-value';
+import { division } from './division';
+import { rounding } from './rounding';
+import { wordProblems } from './word-problems';
+import { decimalComparison } from './decimal-comparison';
 
 // ---------------------------------------------------------------------------
 // GENERATORS — the static frozen registry
@@ -71,6 +77,12 @@ export const GENERATORS: Readonly<Record<NodeId, Generator>> = Object.freeze({
   'fraction-simplification': fractionSimplification,
   'addition-within-20': additionWithin20,
   'unknown-as-missing-addend': unknownAsMissingAddend,
+  'subtraction-within-20': subtractionWithin20,
+  'place-value': placeValue,
+  'division': division,
+  'rounding': rounding,
+  'word-problems': wordProblems,
+  'decimal-comparison': decimalComparison,
 });
 
 // ---------------------------------------------------------------------------

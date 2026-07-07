@@ -294,6 +294,12 @@ const uk: CatalogResource = {
   'node.multiplication': 'Множення',
   'node.fruit-equations': 'Фруктові рівняння',
   'node.fraction-simplification': 'Скорочення дробів',
+  'node.subtraction-within-20': 'Віднімання в межах 20',
+  'node.place-value': 'Розряди числа',
+  'node.division': 'Ділення',
+  'node.rounding': 'Округлення',
+  'node.word-problems': 'Текстові задачі',
+  'node.decimal-comparison': 'Порівняння десяткових',
 
   'nav.nodeMap': 'Карта тем',
   'nav.task': 'Завдання',
@@ -418,6 +424,64 @@ const uk: CatalogResource = {
   'fruit_eq.recap.apple': '🍎',
   'fruit_eq.recap.banana': '🍌',
   'fruit_eq.recap.cherry': '🍒',
+
+  // -------------------------------------------------------------------------
+  // subtraction_20.* — Subtraction-within-20 generator prompts (vars: m, s —
+  //   the minuend and subtrahend; the difference is the answer and is never
+  //   carried in vars).
+  // -------------------------------------------------------------------------
+
+  'subtraction_20.problem': '{{m}} − {{s}} = ?',
+  'subtraction_20.step.difference': 'Скільки буде {{m}} мінус {{s}}?',
+
+  // -------------------------------------------------------------------------
+  // place_value.* — Place-value generator prompts (vars: n). Two steps
+  //   (tens, ones); recap labels show the solved tens digit while the ones
+  //   digit is being answered.
+  // -------------------------------------------------------------------------
+
+  'place_value.problem': 'Розклади {{n}} на десятки та одиниці.',
+  'place_value.step.tens': 'Скільки десятків у числі {{n}}?',
+  'place_value.step.ones': 'Скільки одиниць у числі {{n}}?',
+  'place_value.recap.tens': 'десятки',
+  'place_value.recap.ones': 'одиниці',
+
+  // -------------------------------------------------------------------------
+  // division.* — Division generator prompts (vars: a — divisor, c — dividend;
+  //   the quotient is the answer and is never carried in vars).
+  // -------------------------------------------------------------------------
+
+  'division.problem': 'Скільки буде {{c}} : {{a}}?',
+  'division.step.quotient': 'Скільки буде {{c}} поділити на {{a}}?',
+
+  // -------------------------------------------------------------------------
+  // rounding.* — Rounding-to-nearest-10 generator prompts (vars: n; the
+  //   rounded value is the answer and is never carried in vars).
+  // -------------------------------------------------------------------------
+
+  'rounding.problem': 'Округли {{n}} до найближчих 10.',
+  'rounding.step.rounded': 'Яке число найближче до {{n}}, кратне 10?',
+
+  // -------------------------------------------------------------------------
+  // word_problems.* — Word-problems generator prompts. Problem vars: k, p, m
+  //   (item count, per-item price, amount paid). Step 1 (total) vars: k, p;
+  //   step 2 (change) vars: m. A recap label shows the solved total while the
+  //   change step is being answered.
+  // -------------------------------------------------------------------------
+
+  'word_problems.problem':
+    'Ти купуєш {{k}} шт. по {{p}} грн і даєш {{m}} грн. Скільки решти?',
+  'word_problems.step.total': 'Скільки коштує покупка: {{k}} шт. по {{p}} грн?',
+  'word_problems.step.change': 'Скільки решти зі суми {{m}} грн?',
+  'word_problems.recap.total': 'разом',
+
+  // -------------------------------------------------------------------------
+  // decimal_compare.* — Decimal-comparison generator prompts (vars: left,
+  //   right — both displayed candidates; the learner taps the larger one).
+  // -------------------------------------------------------------------------
+
+  'decimal_compare.problem': 'Яке число більше: {{left}} чи {{right}}?',
+  'decimal_compare.step.larger': 'Обери більше число',
 
   // -------------------------------------------------------------------------
   // widget.* — Answer-widget chrome labels (ordinary). Rendered via useT()

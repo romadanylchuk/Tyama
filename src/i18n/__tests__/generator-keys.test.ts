@@ -56,6 +56,29 @@ const REQUIRED_KEYS: readonly string[] = [
   'fruit_eq.recap.apple',
   'fruit_eq.recap.banana',
   'fruit_eq.recap.cherry',
+  // subtraction-within-20
+  'subtraction_20.problem',
+  'subtraction_20.step.difference',
+  // place-value
+  'place_value.problem',
+  'place_value.step.tens',
+  'place_value.step.ones',
+  'place_value.recap.tens',
+  'place_value.recap.ones',
+  // division
+  'division.problem',
+  'division.step.quotient',
+  // rounding
+  'rounding.problem',
+  'rounding.step.rounded',
+  // word-problems
+  'word_problems.problem',
+  'word_problems.step.total',
+  'word_problems.step.change',
+  'word_problems.recap.total',
+  // decimal-comparison
+  'decimal_compare.problem',
+  'decimal_compare.step.larger',
   // widget chrome (rendered via useT() in the widgets)
   'widget.confirm',
   'widget.backspace',
@@ -71,6 +94,12 @@ const REQUIRED_KEYS: readonly string[] = [
   'node.multiplication',
   'node.fruit-equations',
   'node.fraction-simplification',
+  'node.subtraction-within-20',
+  'node.place-value',
+  'node.division',
+  'node.rounding',
+  'node.word-problems',
+  'node.decimal-comparison',
 ];
 
 describe('generator + widget i18n key completeness', () => {

@@ -87,19 +87,22 @@ function handleInputMode(mode: InputMode): string {
       return 'tokens';
     case 'multi-slot':
       return 'multi-slot';
+    case 'compare':
+      return 'compare';
     default:
       return assertNever(mode);
   }
 }
 
 describe('InputMode', () => {
-  it('has exactly five members', () => {
+  it('has exactly six members', () => {
     const modes: InputMode[] = [
       'manipulative',
       'choice',
       'number',
       'tokens',
       'multi-slot',
+      'compare',
     ];
     for (const mode of modes) {
       expect(handleInputMode(mode)).toBe(mode);

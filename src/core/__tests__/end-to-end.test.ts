@@ -13,7 +13,7 @@
  *   - loadGraph() returns a valid, fixture-flagged graph.
  *   - validateGraph() does not throw on the fixture.
  *   - resolveAvailability(): fruit-equations and its prereqs are all 'available'
- *     (every fixture node is generator-backed as of graphVersion 0.2.1).
+ *     (every fixture node is generator-backed as of graphVersion 0.3.0).
  *   - selectBand() picks the correct band for a given coordinate.
  *   - getGenerator('fruit-equations').generate() produces a GeneratedTask.
  *   - Same seed + same band → byte-identical task (reproducibility invariant).
@@ -44,9 +44,9 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('End-to-end: graph loading', () => {
-  it('loadGraph() returns a GraphDefinition with graphVersion 0.2.1 and fixture: true', () => {
+  it('loadGraph() returns a GraphDefinition with graphVersion 0.3.0 and fixture: true', () => {
     const graph = loadGraph();
-    expect(graph.graphVersion).toBe('0.2.1');
+    expect(graph.graphVersion).toBe('0.3.0');
     expect(graph.fixture).toBe(true);
   });
 

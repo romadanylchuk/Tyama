@@ -15,7 +15,7 @@
  *
  * WHY THE DEFAULT SEQUENCE OMITS THE TWO FOUNDATION NODES:
  *   `addition-within-20` and `unknown-as-missing-addend` are now
- *   generator-backed (graphVersion 0.2.1) and would resolve to `'available'`
+ *   generator-backed (as of graphVersion 0.2.1, still true at 0.3.0) and would resolve to `'available'`
  *   per `resolveAvailability()` — they are no longer excluded for
  *   availability reasons. They stay out of the shipped `CURATED_ENTRY_PATH`
  *   for now as a `pedagogy-pass` sequencing decision (the curated path is

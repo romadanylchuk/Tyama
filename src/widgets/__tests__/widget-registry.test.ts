@@ -42,6 +42,7 @@ describe('WIDGETS registry exhaustiveness', () => {
     'tokens',
     'manipulative',
     'multi-slot',
+    'compare',
   ];
 
   it('has a widget entry for every InputMode member', () => {
@@ -251,6 +252,11 @@ describe('getWidget dispatch', () => {
     const widget = getWidget('multi-slot');
     expect(typeof widget).toBe('function');
   });
+
+  it('returns CompareWidget for compare mode', () => {
+    const { CompareWidget } = require('../CompareWidget');
+    expect(getWidget('compare')).toBe(CompareWidget);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -265,6 +271,7 @@ describe('finalOnly is not an InputMode member', () => {
       'tokens',
       'manipulative',
       'multi-slot',
+      'compare',
     ];
 
     // Structural proof: 'finalOnly' is NOT assignable to InputMode.
@@ -344,5 +351,18 @@ describe('WidgetConfig discriminated union', () => {
     };
     expect(config.mode).toBe('multi-slot');
     expect(config.slots).toHaveLength(2);
+  });
+
+  it('compare config has mode and exactly two locale-formatted display options', () => {
+    const config = {
+      mode: 'compare' as const,
+      options: [
+        { id: 'left', display: '3,5' },
+        { id: 'right', display: '3,45' },
+      ],
+    };
+    expect(config.mode).toBe('compare');
+    expect(config.options).toHaveLength(2);
+    expect(config.options.map((o) => o.display)).toEqual(['3,5', '3,45']);
   });
 });

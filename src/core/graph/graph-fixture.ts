@@ -20,7 +20,7 @@
  *   calibrates these values later as a pure data change (no code change needed).
  *
  * TWO VERSION AXES:
- *   `graphVersion: '0.2.1'` tracks the graph-content axis ONLY.
+ *   `graphVersion: '0.3.0'` tracks the graph-content axis ONLY.
  *   It is NEVER conflated with `DB_SCHEMA_VERSION` / `PRAGMA user_version`.
  *
  * VERSION HISTORY:
@@ -28,6 +28,10 @@
  *           band ladders + registered generators (previously stub single-band
  *           generator-less placeholders). No node identity changed (no
  *           split/merge/rename), so `GRAPH_MIGRATIONS['0.2.0']` is a no-op.
+ *   0.3.0 — Six new generator-backed nodes ADDED: `subtraction-within-20`,
+ *           `place-value`, `division`, `rounding`, `word-problems`,
+ *           `decimal-comparison`. No existing node is split, merged, or
+ *           renamed, so `GRAPH_MIGRATIONS['0.2.1']` is a no-op.
  *
  * NODES (smoke-test fixture, not MVP catalog):
  *   - `addition-within-20`        — root node, no prerequisites; generator-backed.
@@ -36,6 +40,12 @@
  *   - `number-bonds`              — generator-backed node; prerequisite: addition-within-20.
  *   - `multiplication`            — generator-backed node; prerequisite: number-bonds.
  *   - `fraction-simplification`   — generator-backed node; prerequisite: fruit-equations.
+ *   - `subtraction-within-20`     — generator-backed node; prerequisite: addition-within-20.
+ *   - `place-value`               — generator-backed node; prerequisite: addition-within-20.
+ *   - `division`                  — generator-backed node; prerequisite: multiplication.
+ *   - `rounding`                  — generator-backed node; prerequisite: place-value.
+ *   - `word-problems`             — generator-backed node; prerequisites: multiplication, subtraction-within-20.
+ *   - `decimal-comparison`        — generator-backed node; prerequisite: place-value.
  */
 
 import type { GraphDefinition } from '@/core/types';
@@ -51,7 +61,7 @@ import type { GraphDefinition } from '@/core/types';
  * The indirection enables future OTA graph swaps with no consumer change.
  */
 export const GRAPH_FIXTURE: GraphDefinition = {
-  graphVersion: '0.2.1',
+  graphVersion: '0.3.0',
   fixture: true,
   nodes: [
     // -------------------------------------------------------------------------
@@ -323,6 +333,207 @@ export const GRAPH_FIXTURE: GraphDefinition = {
             minCoordinate: 0.7,
             representationLevel: 'abstract',
             params: { maxDenominator: 12, maxFactor: 5 },
+          },
+        ],
+      },
+    },
+
+    // -------------------------------------------------------------------------
+    // subtraction-within-20 — generator-backed node (graphVersion 0.3.0)
+    // Prerequisites: addition-within-20.
+    // Skill: a subtraction fact m - s = d; the learner supplies the difference.
+    //
+    // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
+    //   Band 0 (concrete)  [0.00, 0.40) — manipulative; maxTotal 10
+    //   Band 1 (pictorial) [0.40, 0.70) — choice;       maxTotal 15
+    //   Band 2 (abstract)  [0.70, 1.00+) — number-pad;   maxTotal 20
+    //
+    // `params` shape: { maxTotal: number }
+    // Only the subtraction-within-20 generator narrows this (core never inspects it).
+    // -------------------------------------------------------------------------
+    {
+      id: 'subtraction-within-20',
+      prerequisites: ['addition-within-20'],
+      representationLevels: ['concrete', 'pictorial', 'abstract'],
+      difficultyHooks: {
+        bands: [
+          {
+            minCoordinate: 0,
+            representationLevel: 'concrete',
+            params: { maxTotal: 10 },
+          },
+          {
+            minCoordinate: 0.4,
+            representationLevel: 'pictorial',
+            params: { maxTotal: 15 },
+          },
+          {
+            minCoordinate: 0.7,
+            representationLevel: 'abstract',
+            params: { maxTotal: 20 },
+          },
+        ],
+      },
+    },
+
+    // -------------------------------------------------------------------------
+    // place-value — generator-backed node (graphVersion 0.3.0)
+    // Prerequisites: addition-within-20.
+    // Skill: decompose a two-digit number n into tens and ones.
+    //
+    // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
+    //   Band 0 (concrete) [0.00, 0.50) — tokens;  maxTens 5
+    //   Band 1 (abstract) [0.50, 1.00+) — number;  maxTens 9
+    //
+    // `params` shape: { maxTens: number }
+    // Only the place-value generator narrows this (core never inspects it).
+    // -------------------------------------------------------------------------
+    {
+      id: 'place-value',
+      prerequisites: ['addition-within-20'],
+      representationLevels: ['concrete', 'abstract'],
+      difficultyHooks: {
+        bands: [
+          {
+            minCoordinate: 0,
+            representationLevel: 'concrete',
+            params: { maxTens: 5 },
+          },
+          {
+            minCoordinate: 0.5,
+            representationLevel: 'abstract',
+            params: { maxTens: 9 },
+          },
+        ],
+      },
+    },
+
+    // -------------------------------------------------------------------------
+    // division — generator-backed node (graphVersion 0.3.0)
+    // Prerequisites: multiplication.
+    // Skill: division-as-inverse-multiplication, c / a = q; learner supplies q.
+    // Deliberately flat abstract-only representation (mirrors multiplication).
+    //
+    // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
+    //   Band 0 (easy)   [0.00, 0.50) — abstract; tableMax 5
+    //   Band 1 (medium) [0.50, 1.00+) — abstract; tableMax 10
+    //
+    // `params` shape: { tableMax: number }
+    // Only the division generator narrows this (core never inspects it).
+    // -------------------------------------------------------------------------
+    {
+      id: 'division',
+      prerequisites: ['multiplication'],
+      representationLevels: ['abstract'],
+      difficultyHooks: {
+        bands: [
+          {
+            minCoordinate: 0,
+            representationLevel: 'abstract',
+            params: { tableMax: 5 },
+          },
+          {
+            minCoordinate: 0.5,
+            representationLevel: 'abstract',
+            params: { tableMax: 10 },
+          },
+        ],
+      },
+    },
+
+    // -------------------------------------------------------------------------
+    // rounding — generator-backed node (graphVersion 0.3.0)
+    // Prerequisites: place-value.
+    // Skill: round a number n to the nearest 10.
+    //
+    // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
+    //   Band 0 (pictorial) [0.00, 0.50) — choice;  maxBase 5
+    //   Band 1 (abstract)  [0.50, 1.00+) — number; maxBase 9
+    //
+    // `params` shape: { maxBase: number }
+    // Only the rounding generator narrows this (core never inspects it).
+    // -------------------------------------------------------------------------
+    {
+      id: 'rounding',
+      prerequisites: ['place-value'],
+      representationLevels: ['pictorial', 'abstract'],
+      difficultyHooks: {
+        bands: [
+          {
+            minCoordinate: 0,
+            representationLevel: 'pictorial',
+            params: { maxBase: 5 },
+          },
+          {
+            minCoordinate: 0.5,
+            representationLevel: 'abstract',
+            params: { maxBase: 9 },
+          },
+        ],
+      },
+    },
+
+    // -------------------------------------------------------------------------
+    // word-problems — generator-backed node (graphVersion 0.3.0)
+    // Prerequisites: multiplication, subtraction-within-20.
+    // Skill: a two-step money word problem (total cost, then change received).
+    // Abstract-only at the input level for the MVP.
+    //
+    // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
+    //   Band 0 (easy)   [0.00, 0.50) — abstract; maxItems 3, maxPrice 5
+    //   Band 1 (medium) [0.50, 1.00+) — abstract; maxItems 5, maxPrice 9
+    //
+    // `params` shape: { maxItems: number; maxPrice: number }
+    // Only the word-problems generator narrows this (core never inspects it).
+    // -------------------------------------------------------------------------
+    {
+      id: 'word-problems',
+      prerequisites: ['multiplication', 'subtraction-within-20'],
+      representationLevels: ['abstract'],
+      difficultyHooks: {
+        bands: [
+          {
+            minCoordinate: 0,
+            representationLevel: 'abstract',
+            params: { maxItems: 3, maxPrice: 5 },
+          },
+          {
+            minCoordinate: 0.5,
+            representationLevel: 'abstract',
+            params: { maxItems: 5, maxPrice: 9 },
+          },
+        ],
+      },
+    },
+
+    // -------------------------------------------------------------------------
+    // decimal-comparison — generator-backed node (graphVersion 0.3.0)
+    // Prerequisites: place-value.
+    // Skill: compare two decimals and tap the larger one (the 'compare'
+    // interaction) — exercises the classic more-digits-but-smaller misconception.
+    //
+    // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
+    //   Band 0 (pictorial) [0.00, 0.50) — compare; maxWhole 5
+    //   Band 1 (abstract)  [0.50, 1.00+) — compare; maxWhole 9
+    //
+    // `params` shape: { maxWhole: number }
+    // Only the decimal-comparison generator narrows this (core never inspects it).
+    // -------------------------------------------------------------------------
+    {
+      id: 'decimal-comparison',
+      prerequisites: ['place-value'],
+      representationLevels: ['pictorial', 'abstract'],
+      difficultyHooks: {
+        bands: [
+          {
+            minCoordinate: 0,
+            representationLevel: 'pictorial',
+            params: { maxWhole: 5 },
+          },
+          {
+            minCoordinate: 0.5,
+            representationLevel: 'abstract',
+            params: { maxWhole: 9 },
           },
         ],
       },

@@ -31,6 +31,7 @@ import { ChoiceWidget } from './ChoiceWidget';
 import { NumberWidget } from './NumberWidget';
 import { TokensWidget } from './TokensWidget';
 import { ManipulativeWidget } from './ManipulativeWidget';
+import { CompareWidget } from './CompareWidget';
 
 // ---------------------------------------------------------------------------
 // MultiSlotWidget — inline thin wrapper over NumberWidget
@@ -71,6 +72,7 @@ export const WIDGETS: Readonly<Record<InputMode, WidgetComponent>> = Object.free
   tokens: TokensWidget,
   manipulative: ManipulativeWidget,
   'multi-slot': MultiSlotWidget,
+  compare: CompareWidget,
 } satisfies Record<InputMode, WidgetComponent>);
 
 // ---------------------------------------------------------------------------
@@ -104,6 +106,8 @@ export function getWidget(mode: InputMode): WidgetComponent {
       return WIDGETS.manipulative;
     case 'multi-slot':
       return WIDGETS['multi-slot'];
+    case 'compare':
+      return WIDGETS.compare;
     default: {
       // Exhaustiveness guard: if a new InputMode is added to the closed union
       // in @/core/types.ts and no case is added here, TypeScript reports a
