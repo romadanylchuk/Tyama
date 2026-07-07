@@ -99,6 +99,23 @@ export interface MasteryConfig {
    * Default: 0.40.
    */
   readonly pictorialFade: number;
+
+  /**
+   * Minimum number of ABSTRACT-slice window entries required before the
+   * learner-facing "mastered" state may show (integer ≥ 1).
+   *
+   * WHY: the aggregate is a windowed mean, so with 1–2 entries it can leap
+   * straight past `masteryThreshold` — "mastery" granted on two lucky answers
+   * is neither honest nor pedagogically sustained (brief: gates require
+   * sustained accuracy AND speed). This floor makes the gate demand evidence.
+   *
+   * SCOPE: applies to the PRESENTATION mastery gate only (ring 'mastered'
+   * state, task-screen celebration/routing). Stage-04 diagnostic routing keeps
+   * its pure aggregate-vs-threshold comparison (locked behavior) — a
+   * prerequisite that scores hot is still safe to not descend into.
+   * Default: 6. `pedagogy-pass` may calibrate.
+   */
+  readonly minMasteryAttempts: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -152,6 +169,7 @@ export const DEFAULT_MASTERY_CONFIG: MasteryConfig = Object.freeze({
   masteryThreshold: 0.8,
   abstractFade: 0.7,
   pictorialFade: 0.4,
+  minMasteryAttempts: 6,
 } satisfies MasteryConfig);
 
 // ---------------------------------------------------------------------------
@@ -194,5 +212,6 @@ export function resolveMasteryConfig(node: GraphNode): MasteryConfig {
     masteryThreshold: override.masteryThreshold ?? DEFAULT_MASTERY_CONFIG.masteryThreshold,
     abstractFade: override.abstractFade ?? DEFAULT_MASTERY_CONFIG.abstractFade,
     pictorialFade: override.pictorialFade ?? DEFAULT_MASTERY_CONFIG.pictorialFade,
+    minMasteryAttempts: override.minMasteryAttempts ?? DEFAULT_MASTERY_CONFIG.minMasteryAttempts,
   } satisfies MasteryConfig);
 }

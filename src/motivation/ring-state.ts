@@ -59,15 +59,24 @@ export interface RingStateResult {
  *                       or `makeMasteryLookup(...)`. This becomes `fill` verbatim.
  * @param availability - `resolveAvailability(graph)` status for this node
  *                       (`'available'` = generator installed, `'coming-soon'` = not yet).
- * @param config       - Only `masteryThreshold` is read (typically
- *                       `resolveMasteryConfig(node)` or `DEFAULT_MASTERY_CONFIG`),
+ * @param config       - `masteryThreshold` (and `minMasteryAttempts` when the
+ *                       caller supplies `abstractAttempts`) — typically
+ *                       `resolveMasteryConfig(node)` or `DEFAULT_MASTERY_CONFIG`,
  *                       so a per-node mastery-config override is honored automatically.
+ * @param abstractAttempts - Optional evidence count: the abstract slice's
+ *                       window length (see `masteryAttemptCount`). When
+ *                       provided, 'mastered' additionally requires
+ *                       `abstractAttempts >= config.minMasteryAttempts` — a
+ *                       hot 2-answer aggregate stays honest 'in-progress'
+ *                       until the evidence floor is met. Omitted (legacy
+ *                       callers/tests): threshold-only behavior, unchanged.
  * @returns            - `{ state, fill }`. `fill` is always `aggregate`, unmodified.
  */
 export function deriveRingState(
   aggregate: number,
   availability: NodeAvailabilityStatus,
-  config: Pick<MasteryConfig, 'masteryThreshold'>
+  config: Pick<MasteryConfig, 'masteryThreshold'> & Partial<Pick<MasteryConfig, 'minMasteryAttempts'>>,
+  abstractAttempts?: number
 ): RingStateResult {
   const fill = aggregate;
 
@@ -77,7 +86,15 @@ export function deriveRingState(
     return { state: 'not-yet-open', fill };
   }
 
-  if (aggregate >= config.masteryThreshold) {
+  // Evidence floor: with the attempt count supplied, 'mastered' demands both
+  // the threshold AND enough abstract-window evidence (anti-shame safe: the
+  // withheld state is plain 'in-progress', never a loss/denied surface).
+  const evidenceMet =
+    abstractAttempts === undefined ||
+    config.minMasteryAttempts === undefined ||
+    abstractAttempts >= config.minMasteryAttempts;
+
+  if (aggregate >= config.masteryThreshold && evidenceMet) {
     return { state: 'mastered', fill };
   }
 

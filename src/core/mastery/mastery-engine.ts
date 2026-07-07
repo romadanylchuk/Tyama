@@ -305,3 +305,49 @@ export function pushAttempt(
 export function aggregateOf(metrics: MasteryMetrics): number {
   return metrics.aggregate;
 }
+
+// ---------------------------------------------------------------------------
+// Learner-facing mastery gate — evidence floor over the aggregate threshold
+// ---------------------------------------------------------------------------
+
+/**
+ * masteryAttemptCount(metrics): number
+ *
+ * Number of entries currently in the ABSTRACT slice's rolling window — the
+ * evidence count behind a would-be mastery claim. Abstract is the only slice
+ * whose ceiling (1.0) can push the aggregate past `masteryThreshold` (0.8),
+ * so it is the slice whose sample size the gate must trust.
+ *
+ * PURE: no side effects; missing slice reads as 0.
+ */
+export function masteryAttemptCount(metrics: MasteryMetrics): number {
+  return metrics.slices.abstract?.window.length ?? 0;
+}
+
+/**
+ * isMasteryComplete(metrics, config): boolean
+ *
+ * The LEARNER-FACING mastery gate: aggregate has crossed `masteryThreshold`
+ * AND the abstract window holds at least `minMasteryAttempts` entries.
+ *
+ * WHY THE FLOOR: the aggregate is a windowed mean — with 1–2 entries it can
+ * leap straight past the threshold, granting "mastered" on two lucky answers.
+ * The floor demands sustained evidence before the celebration/ring flips.
+ *
+ * SCOPE (deliberate asymmetry, documented in MasteryConfig.minMasteryAttempts):
+ * stage-04 routing keeps its pure aggregate-vs-threshold comparison — this
+ * gate governs only what the LEARNER is told ('mastered' ring state, the
+ * task-screen celebration and its routing). The D1 scalar formula above is
+ * untouched; this is a read-side predicate, not a scoring change.
+ *
+ * PURE: no DB, no clock, no I/O.
+ */
+export function isMasteryComplete(
+  metrics: MasteryMetrics,
+  config: Pick<MasteryConfig, 'masteryThreshold' | 'minMasteryAttempts'>
+): boolean {
+  return (
+    metrics.aggregate >= config.masteryThreshold &&
+    masteryAttemptCount(metrics) >= config.minMasteryAttempts
+  );
+}

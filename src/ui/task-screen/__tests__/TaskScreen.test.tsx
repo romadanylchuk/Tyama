@@ -15,6 +15,7 @@ import { useTestDb } from '../../../../jest.setup';
 import { settings } from '@/repositories/settings-repository';
 import { upsertNonMilestoneProgress } from '@/repositories/progress-repository';
 import { serializeMasteryMetrics } from '@/core/mastery/mastery-metrics';
+import { DEFAULT_MASTERY_CONFIG } from '@/core/mastery/mastery-config';
 import { GRAPH_FIXTURE } from '@/core/graph/graph-fixture';
 import * as registryModule from '@/core/generators/registry';
 import { ThemeProvider } from '@/theme';
@@ -27,10 +28,17 @@ beforeEach(async () => {
   await settings.hydrate();
 });
 
-/** Seed a node's progress row with a given aggregate mastery scalar (mirrors useMastery.test.ts). */
+/**
+ * Seed a node's progress row with a given aggregate mastery scalar (mirrors
+ * useMastery.test.ts). The abstract window is filled with
+ * DEFAULT_MASTERY_CONFIG.minMasteryAttempts entries so the seeded aggregate
+ * also satisfies the learner-facing mastery evidence floor — tests that need
+ * an UNDER-EVIDENCED aggregate seed the window explicitly instead.
+ */
 async function seedAggregate(nodeId: string, aggregate: number): Promise<void> {
+  const window = Array(DEFAULT_MASTERY_CONFIG.minMasteryAttempts).fill(aggregate) as number[];
   const mastery = {
-    slices: { abstract: { window: [aggregate], scalar: aggregate } },
+    slices: { abstract: { window, scalar: aggregate } },
     aggregate,
   };
   await upsertNonMilestoneProgress({
@@ -130,6 +138,71 @@ describe('TaskScreen', () => {
     // generate another same-node task.
     fireEvent.press(await findByTestId('task-feedback-continue'));
     expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it('mastered panel offers "one more" — voluntary repetition never exits', async () => {
+    await seedAggregate('number-bonds', 0.95);
+    const onExit = jest.fn();
+    const controller = new SessionController({ graph: GRAPH_FIXTURE });
+    jest.spyOn(controller, 'submit').mockResolvedValue({ kind: 'correct', xpAwarded: 10 });
+
+    const { getByTestId, findByTestId } = render(
+      <ThemeProvider>
+        <TaskScreen
+          nodeId="number-bonds"
+          controller={controller}
+          onExit={onExit}
+          onNavigate={jest.fn()}
+        />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('task-screen')).toBeTruthy());
+    fireEvent.press(getByTestId('confirm-button'));
+
+    // The secondary action generates a fresh task on the SAME node.
+    fireEvent.press(await findByTestId('task-feedback-practice-more'));
+    expect(onExit).not.toHaveBeenCalled();
+    // Feedback panel is gone; a fresh answer widget is mounted again.
+    await waitFor(() => expect(getByTestId('confirm-button')).toBeTruthy());
+  });
+
+  it('a high aggregate WITHOUT enough abstract-window evidence is not "mastered" — the evidence floor holds', async () => {
+    // Seed aggregate 0.95 but only ONE abstract window entry (< minMasteryAttempts).
+    await upsertNonMilestoneProgress({
+      nodeId: 'number-bonds',
+      metrics: serializeMasteryMetrics(
+        {},
+        { slices: { abstract: { window: [0.95], scalar: 0.95 } }, aggregate: 0.95 }
+      ),
+    });
+    const onExit = jest.fn();
+    const controller = new SessionController({ graph: GRAPH_FIXTURE });
+    jest.spyOn(controller, 'submit').mockResolvedValue({ kind: 'correct', xpAwarded: 10 });
+
+    const { getByTestId, findByTestId, queryByTestId } = render(
+      <ThemeProvider>
+        <TaskScreen
+          nodeId="number-bonds"
+          controller={controller}
+          onExit={onExit}
+          onNavigate={jest.fn()}
+        />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => expect(getByTestId('task-screen')).toBeTruthy());
+    fireEvent.press(getByTestId('confirm-button'));
+
+    // Ordinary correct panel — no mastered secondary button, and the honest
+    // remaining-tasks estimate is shown (threshold met, evidence floor not).
+    await findByTestId('task-feedback-continue');
+    expect(queryByTestId('task-feedback-practice-more')).toBeNull();
+    expect(await findByTestId('attempts-remaining')).toBeTruthy();
+
+    // Continue generates another task on the SAME node (no forced exit).
+    fireEvent.press(getByTestId('task-feedback-continue'));
+    expect(onExit).not.toHaveBeenCalled();
   });
 
   it('recaps an already-solved step (🍎 = value) while the next step is answered', async () => {

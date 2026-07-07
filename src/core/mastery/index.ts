@@ -65,6 +65,8 @@ export {
   combineWindow,
   pushAttempt,
   aggregateOf,
+  masteryAttemptCount,
+  isMasteryComplete,
 } from './mastery-engine';
 
 // ---------------------------------------------------------------------------

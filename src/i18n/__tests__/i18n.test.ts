@@ -83,3 +83,33 @@ describe('unknown key behavior', () => {
     expect(result).toBe('__nonexistent.key__');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Ukrainian pluralization — день / дні / днів via Intl.PluralRules
+// ---------------------------------------------------------------------------
+
+describe('Ukrainian plural forms (streak counts)', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('uk');
+  });
+
+  it('1 → день (one)', () => {
+    expect(i18n.t('streak.kept', { count: 1, context: 'neutral' })).toBe('1 день поспіль.');
+  });
+
+  it('2 → дні (few)', () => {
+    expect(i18n.t('streak.kept', { count: 2, context: 'neutral' })).toBe('2 дні поспіль.');
+  });
+
+  it('5 → днів (many)', () => {
+    expect(i18n.t('streak.kept', { count: 5, context: 'neutral' })).toBe('5 днів поспіль.');
+  });
+
+  it('21 → день (one again — Ukrainian cycles)', () => {
+    expect(i18n.t('streak.kept', { count: 21, context: 'neutral' })).toBe('21 день поспіль.');
+  });
+
+  it('warm register pluralizes too', () => {
+    expect(i18n.t('streak.kept', { count: 3, context: 'warm' })).toContain('3 дні поспіль');
+  });
+});

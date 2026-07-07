@@ -75,3 +75,34 @@ describe('deriveRingState', () => {
     expect(deriveRingState(0.5, 'available', CONFIG).state).toBe('in-progress');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Evidence floor (minMasteryAttempts) — the learner-facing mastery gate
+// ---------------------------------------------------------------------------
+
+describe('deriveRingState — minMasteryAttempts evidence floor', () => {
+  const FLOOR_CONFIG = { masteryThreshold: 0.8, minMasteryAttempts: 6 };
+
+  it('withholds mastered (as plain in-progress) when evidence is short of the floor', () => {
+    const { state } = deriveRingState(0.95, 'available', FLOOR_CONFIG, 2);
+    expect(state).toBe('in-progress'); // never a loss/denied state
+  });
+
+  it('grants mastered once the evidence floor is met', () => {
+    expect(deriveRingState(0.95, 'available', FLOOR_CONFIG, 6).state).toBe('mastered');
+    expect(deriveRingState(0.95, 'available', FLOOR_CONFIG, 12).state).toBe('mastered');
+  });
+
+  it('legacy callers (no attempts arg) keep threshold-only behavior', () => {
+    expect(deriveRingState(0.95, 'available', FLOOR_CONFIG).state).toBe('mastered');
+  });
+
+  it('config without minMasteryAttempts keeps threshold-only behavior even with attempts', () => {
+    expect(deriveRingState(0.95, 'available', { masteryThreshold: 0.8 }, 1).state).toBe('mastered');
+  });
+
+  it('fill remains the raw aggregate while the floor withholds mastered', () => {
+    const { fill } = deriveRingState(0.9, 'available', FLOOR_CONFIG, 1);
+    expect(fill).toBe(0.9);
+  });
+});

@@ -169,16 +169,45 @@ const uk: CatalogResource = {
   //   Both _warm and _neutral required (no-shame-critical).
   // -------------------------------------------------------------------------
 
-  /** Streak maintained/earned. */
+  /**
+   * Streak maintained/earned. Ukrainian plural categories (Intl.PluralRules):
+   * one (1, 21, 31…) → день; few (2–4, 22–24…) → дні; many (5–20, 25–30…) → днів.
+   * i18next resolves `key_register_plural` when `count` is interpolated; the
+   * suffix-less variants stay as fallbacks.
+   */
   'streak.kept_warm':
     '🔥 {{count}} день поспіль — так тримати!',
+  'streak.kept_warm_one':
+    '🔥 {{count}} день поспіль — так тримати!',
+  'streak.kept_warm_few':
+    '🔥 {{count}} дні поспіль — так тримати!',
+  'streak.kept_warm_many':
+    '🔥 {{count}} днів поспіль — так тримати!',
   'streak.kept_neutral':
     '{{count}} день поспіль.',
+  'streak.kept_neutral_one':
+    '{{count}} день поспіль.',
+  'streak.kept_neutral_few':
+    '{{count}} дні поспіль.',
+  'streak.kept_neutral_many':
+    '{{count}} днів поспіль.',
 
-  /** Streak milestone (first day, milestone counts). */
+  /** Streak milestone (first day, milestone counts). Same plural ladder. */
   'streak.milestone_warm':
     '🎉 {{count}} днів поспіль — це вже традиція!',
+  'streak.milestone_warm_one':
+    '🎉 {{count}} день поспіль — це вже традиція!',
+  'streak.milestone_warm_few':
+    '🎉 {{count}} дні поспіль — це вже традиція!',
+  'streak.milestone_warm_many':
+    '🎉 {{count}} днів поспіль — це вже традиція!',
   'streak.milestone_neutral':
+    '{{count}} днів поспіль.',
+  'streak.milestone_neutral_one':
+    '{{count}} день поспіль.',
+  'streak.milestone_neutral_few':
+    '{{count}} дні поспіль.',
+  'streak.milestone_neutral_many':
     '{{count}} днів поспіль.',
 
   // -------------------------------------------------------------------------
@@ -314,6 +343,21 @@ const uk: CatalogResource = {
   'task.next': 'Далі',
   'task.loading': 'Завантаження...',
   'task.xpEarned': '+{{xp}} XP',
+  // Plain total XP for chrome (never the "+N earned" framing).
+  'task.xpTotal': '{{xp}} XP',
+  // Multi-step shape indicator ("Крок 1 з 2").
+  'task.stepOf': 'Крок {{current}} з {{total}}',
+  // Kept-day session goal ("Сьогодні: 2/3") — makes the streak goal visible.
+  'task.dayProgress': 'Сьогодні: {{done}}/{{goal}} ✔',
+  // Mastery gain shown on the correct panel (gains only, never dips).
+  'task.masteryDelta': '+{{delta}}% до освоєння',
+  // Honest lower bound on remaining tasks once only the evidence floor is left.
+  'task.attemptsRemaining': 'Ще щонайменше {{count}} завдань до освоєння',
+  'task.attemptsRemaining_one': 'Ще щонайменше {{count}} завдання до освоєння',
+  'task.attemptsRemaining_few': 'Ще щонайменше {{count}} завдання до освоєння',
+  'task.attemptsRemaining_many': 'Ще щонайменше {{count}} завдань до освоєння',
+  // Secondary action on the mastered panel — voluntary repetition.
+  'task.oneMore': 'Ще одну',
   // Shown when diagnostic routing lands on a foundation whose tasks aren't ready yet.
   'task.comingSoonBody':
     'Ми ще готуємо завдання для цієї основи. Повернемось до неї згодом — а зараз можеш продовжити з іншою темою.',

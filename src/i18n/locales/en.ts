@@ -130,8 +130,12 @@ const en: CatalogResource = {
 
   'streak.milestone_warm':
     "🎉 {{count}} days in a row — that's becoming a habit!",
+  'streak.milestone_warm_one':
+    "🎉 {{count}} day in a row — that's a start of a habit!",
   'streak.milestone_neutral':
     '{{count}} days in a row.',
+  'streak.milestone_neutral_one':
+    '{{count}} day in a row.',
 
   // -------------------------------------------------------------------------
   // feedback.* — Generic task-feedback surfaces
@@ -248,6 +252,13 @@ const en: CatalogResource = {
   'task.next': 'Next',
   'task.loading': 'Loading...',
   'task.xpEarned': '+{{xp}} XP',
+  'task.xpTotal': '{{xp}} XP',
+  'task.stepOf': 'Step {{current}} of {{total}}',
+  'task.dayProgress': 'Today: {{done}}/{{goal}} ✔',
+  'task.masteryDelta': '+{{delta}}% toward mastery',
+  'task.attemptsRemaining': 'At least {{count}} more tasks to mastery',
+  'task.attemptsRemaining_one': 'At least {{count}} more task to mastery',
+  'task.oneMore': 'One more',
   // Shown when diagnostic routing lands on a foundation whose tasks aren't ready yet.
   'task.comingSoonBody':
     "We're still preparing tasks for this foundation. We'll come back to it soon — for now you can continue with another topic.",

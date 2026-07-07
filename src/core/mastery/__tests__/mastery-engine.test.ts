@@ -26,6 +26,8 @@ import {
   combineWindow,
   pushAttempt,
   aggregateOf,
+  isMasteryComplete,
+  masteryAttemptCount,
 } from '@/core/mastery/mastery-engine';
 import { DEFAULT_MASTERY_CONFIG } from '@/core/mastery/mastery-config';
 import { seedMasteryMetrics } from '@/core/mastery/mastery-metrics';
@@ -644,5 +646,55 @@ describe('ANTI-SHAME — speed is an up-force only (explicit assertions)', () =>
     expect(metrics.aggregate).toBeLessThan(STD_CONFIG.masteryThreshold);
     // Specifically: concrete ceiling (0.45) < masteryThreshold (0.80)
     expect(metrics.aggregate).toBeLessThanOrEqual(STD_CONFIG.levelCeilings.concrete);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isMasteryComplete / masteryAttemptCount — learner-facing gate with evidence floor
+// ---------------------------------------------------------------------------
+
+describe('masteryAttemptCount', () => {
+  it('counts the abstract window entries; missing slice reads as 0', () => {
+    expect(masteryAttemptCount({ slices: {}, aggregate: 0 })).toBe(0);
+    expect(
+      masteryAttemptCount({
+        slices: { abstract: { window: [1, 0.9, 1], scalar: 0.97 } },
+        aggregate: 0.97,
+      })
+    ).toBe(3);
+    expect(
+      masteryAttemptCount({
+        slices: { pictorial: { window: [0.7, 0.7], scalar: 0.7 } },
+        aggregate: 0.7,
+      })
+    ).toBe(0); // pictorial evidence never counts toward the mastery gate
+  });
+});
+
+describe('isMasteryComplete', () => {
+  const GATE = { masteryThreshold: 0.8, minMasteryAttempts: 6 };
+
+  it('requires BOTH the threshold and the evidence floor', () => {
+    const hot = { slices: { abstract: { window: [1, 1], scalar: 1 } }, aggregate: 1 };
+    expect(isMasteryComplete(hot, GATE)).toBe(false); // 2 lucky answers are not mastery
+
+    const sustained = {
+      slices: { abstract: { window: [1, 0.9, 1, 0.9, 1, 1], scalar: 0.97 } },
+      aggregate: 0.97,
+    };
+    expect(isMasteryComplete(sustained, GATE)).toBe(true);
+  });
+
+  it('a full window below the threshold is not mastery', () => {
+    const steady = {
+      slices: { abstract: { window: [0.7, 0.7, 0.7, 0.7, 0.7, 0.7], scalar: 0.7 } },
+      aggregate: 0.7,
+    };
+    expect(isMasteryComplete(steady, GATE)).toBe(false);
+  });
+
+  it('honors config-as-data (a looser per-node floor)', () => {
+    const hot = { slices: { abstract: { window: [1, 1], scalar: 1 } }, aggregate: 1 };
+    expect(isMasteryComplete(hot, { masteryThreshold: 0.8, minMasteryAttempts: 2 })).toBe(true);
   });
 });

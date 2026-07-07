@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { NodeId } from '@/core/types';
 import { loadGraph } from '@/core/graph/load-graph';
+import { masteryAttemptCount } from '@/core/mastery/mastery-engine';
 import { parseMasteryMetrics } from '@/core/mastery/mastery-metrics';
 import { getProgress } from '@/repositories/progress-repository';
 import { subscribeDurable, readDurableSince } from '@/repositories/events-repository';
@@ -38,6 +39,12 @@ import { subscribeDurable, readDurableSince } from '@/repositories/events-reposi
 export interface UseMasteryResult {
   /** NodeId → mastery aggregate scalar (0..1), one entry per graph node. */
   readonly aggregates: ReadonlyMap<NodeId, number>;
+  /**
+   * NodeId → abstract-slice window length (the mastery-gate evidence count;
+   * see `masteryAttemptCount`). Feeds the `minMasteryAttempts` floor in
+   * `deriveRingState` / the task-screen mastery gate.
+   */
+  readonly abstractAttempts: ReadonlyMap<NodeId, number>;
   /** True until the first successful load completes. */
   readonly loading: boolean;
   /** Force an immediate re-read of every graph node's progress row. */
@@ -58,18 +65,20 @@ export interface UseMasteryResult {
  */
 export function useMastery(): UseMasteryResult {
   const [aggregates, setAggregates] = useState<ReadonlyMap<NodeId, number>>(new Map());
+  const [abstractAttempts, setAbstractAttempts] = useState<ReadonlyMap<NodeId, number>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (): Promise<void> => {
     const graph = loadGraph();
     const entries = await Promise.all(
-      graph.nodes.map(async (node): Promise<readonly [NodeId, number]> => {
+      graph.nodes.map(async (node): Promise<readonly [NodeId, number, number]> => {
         const row = await getProgress(node.id);
         const { mastery } = parseMasteryMetrics(row?.metrics ?? '');
-        return [node.id, mastery.aggregate] as const;
+        return [node.id, mastery.aggregate, masteryAttemptCount(mastery)] as const;
       })
     );
-    setAggregates(new Map(entries));
+    setAggregates(new Map(entries.map(([id, aggregate]) => [id, aggregate] as const)));
+    setAbstractAttempts(new Map(entries.map(([id, , attempts]) => [id, attempts] as const)));
     setLoading(false);
   }, []);
 
@@ -96,6 +105,7 @@ export function useMastery(): UseMasteryResult {
 
   return {
     aggregates,
+    abstractAttempts,
     loading,
     refresh: () => {
       void load();

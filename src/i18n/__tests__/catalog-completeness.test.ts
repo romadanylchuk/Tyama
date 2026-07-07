@@ -130,3 +130,46 @@ describe('fixture catalogs — checker detects violations', () => {
     expect(locales).toEqual(['en', 'uk']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Plural-suffixed critical keys — stripped to the bare key, never treated as
+// their own critical namespace (regression for the uk plural variants).
+// ---------------------------------------------------------------------------
+
+describe('plural-suffixed keys resolve to their bare key', () => {
+  it('a critical key with register+plural variants produces NO violations', () => {
+    const fixtureCatalog: CatalogMap = {
+      uk: {
+        'streak.kept_warm': 'base warm',
+        'streak.kept_neutral': 'base neutral',
+        'streak.kept_warm_few': 'few warm',
+        'streak.kept_neutral_many': 'many neutral',
+      },
+    };
+    const violations = findMissingRegisterVariants(
+      fixtureCatalog,
+      CRITICAL_KEY_PREFIXES,
+      REGISTERS,
+    );
+    expect(violations).toHaveLength(0);
+  });
+
+  it('a plural variant does NOT satisfy a missing register variant', () => {
+    const fixtureCatalog: CatalogMap = {
+      uk: {
+        'streak.kept_warm': 'base warm',
+        'streak.kept_warm_few': 'few warm',
+        // MISSING: streak.kept_neutral
+      },
+    };
+    const violations = findMissingRegisterVariants(
+      fixtureCatalog,
+      CRITICAL_KEY_PREFIXES,
+      REGISTERS,
+    );
+    const missingNeutral = violations.some(
+      (v) => v.bareKey === 'streak.kept' && v.register === 'neutral',
+    );
+    expect(missingNeutral).toBe(true);
+  });
+});

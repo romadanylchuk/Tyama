@@ -61,7 +61,7 @@ import { settings } from '@/repositories/settings-repository';
 import { useTheme } from '@/theme';
 import { useT } from '@/i18n';
 import { nodeDisplayName } from '@/i18n/node-name';
-import { deriveRingState, useMastery, useMotivation, MasteryRing } from '@/motivation';
+import { deriveRingState, useMastery, useMotivation, MasteryRing, MIN_TASKS_FOR_KEPT_DAY } from '@/motivation';
 import { buildWidgetConfig } from './build-widget-config';
 import { SessionController, type SessionViewEvent } from './session-controller';
 
@@ -112,23 +112,29 @@ export function TaskScreen({
     [graph]
   );
 
-  // Has the learner reached mastery on THIS node? Once mastered, re-drilling the
-  // same node is pointless — the correct-answer flow celebrates and routes the
-  // learner onward to choose their next skill instead of generating another
-  // same-node task (which is how a learner otherwise gets stuck looping on a
-  // node whose ring already reads "mastered"). Recomputed after every
-  // mastery.refresh() (which handleWidgetOutput fires post-submit).
+  // Has the learner reached mastery on THIS node? The learner-facing gate is
+  // threshold AND evidence floor (minMasteryAttempts abstract-window entries —
+  // see isMasteryComplete's rationale): a 2-answer hot streak stays honest
+  // 'in-progress'. On mastery the correct-answer flow celebrates and offers
+  // BOTH "one more" (voluntary repetition) and "choose next" (the map).
+  // Recomputed after every mastery.refresh() (fired post-submit).
   const nodeMastered = useMemo(() => {
     if (!node) return false;
+    const cfg = resolveMasteryConfig(node);
     const aggregate = mastery.aggregates.get(nodeId) ?? 0;
-    return aggregate >= resolveMasteryConfig(node).masteryThreshold;
-  }, [node, nodeId, mastery.aggregates]);
+    const attempts = mastery.abstractAttempts.get(nodeId) ?? 0;
+    return aggregate >= cfg.masteryThreshold && attempts >= cfg.minMasteryAttempts;
+  }, [node, nodeId, mastery.aggregates, mastery.abstractAttempts]);
 
   const [task, setTask] = useState<GeneratedTask | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [outputs, setOutputs] = useState<readonly WidgetOutput[]>([]);
   const [startedAt, setStartedAt] = useState<number>(() => Date.now());
   const [viewEvent, setViewEvent] = useState<SessionViewEvent | null>(null);
+  // Aggregate snapshot taken at submit time — the feedback panel shows the
+  // GAIN ("+N%") as current-minus-snapshot once mastery.refresh() lands.
+  // Anti-shame: only ever displayed when positive; a windowed dip shows nothing.
+  const [aggregateAtSubmit, setAggregateAtSubmit] = useState(0);
 
   const generateTask = useCallback((): void => {
     if (!node) return;
@@ -202,6 +208,7 @@ export function TaskScreen({
 
       // All outputs collected — submit.
       setOutputs(nextOutputs);
+      setAggregateAtSubmit(mastery.aggregates.get(nodeId) ?? 0);
       const elapsedMs = Date.now() - startedAt;
       void controller
         .submit({
@@ -230,6 +237,7 @@ export function TaskScreen({
       controller,
       mastery,
       motivation,
+      nodeId,
     ]
   );
 
@@ -243,9 +251,10 @@ export function TaskScreen({
       setViewEvent(null);
       return;
     }
-    // Mastered this node with a correct answer → don't re-drill. Send the learner
-    // to the node map to pick their next skill (the map is the MVP's forward
-    // hub). Prevents the "stuck looping on a mastered node" dead-end.
+    // Mastered this node with a correct answer → the primary action moves the
+    // learner onward to the map (the MVP's forward hub) — but never as a
+    // forced exit: the mastered panel ALSO offers "one more" (see
+    // handlePracticeMore) so voluntary repetition stays a first-class choice.
     if (viewEvent.kind === 'correct' && nodeMastered) {
       onExit();
       return;
@@ -265,6 +274,12 @@ export function TaskScreen({
     // 'correct' / 'escalation' / same-node 'staged-descent' → a fresh task.
     generateTask();
   }, [viewEvent, nodeId, nodeMastered, onNavigate, onExit, generateTask]);
+
+  // "Ще одну" on the mastered panel — voluntary repetition on an already-
+  // mastered skill (a fluency trainer must never make practice impossible).
+  const handlePracticeMore = useCallback((): void => {
+    generateTask();
+  }, [generateTask]);
 
   if (!node) {
     return (
@@ -320,11 +335,31 @@ export function TaskScreen({
     );
   }
 
+  const masteryConfig = resolveMasteryConfig(node);
+  const currentAggregate = mastery.aggregates.get(nodeId) ?? 0;
+  const currentAttempts = mastery.abstractAttempts.get(nodeId) ?? 0;
   const ringState = deriveRingState(
-    mastery.aggregates.get(nodeId) ?? 0,
+    currentAggregate,
     availabilityByNode.get(nodeId) ?? 'coming-soon',
-    resolveMasteryConfig(node)
+    masteryConfig,
+    currentAttempts
   );
+  // Feedback-panel progress feedback (anti-shame: gains only, dips show nothing).
+  const progressDeltaPct =
+    viewEvent?.kind === 'correct'
+      ? Math.round((currentAggregate - aggregateAtSubmit) * 100)
+      : 0;
+  // Honest "at least N more tasks" — only estimable once the score is already
+  // past the threshold and ONLY the evidence floor remains (window entries
+  // accrue exactly one per task, so the remainder is a real lower bound).
+  const attemptsRemaining =
+    viewEvent?.kind === 'correct' &&
+    !nodeMastered &&
+    currentAggregate >= masteryConfig.masteryThreshold
+      ? Math.max(0, masteryConfig.minMasteryAttempts - currentAttempts)
+      : 0;
+  // Session kept-day goal (display capped at the goal — "3/3", never "5/3").
+  const keptDayDone = Math.min(controller.getCompletedTaskCount(), MIN_TASKS_FOR_KEPT_DAY);
   const widgetConfig = buildWidgetConfig(task, currentStep, contentLanguage, resolveMasteryConfig(node));
   const Widget = getWidget(currentStep.inputMode);
   // 'multi-slot': widgetConfig is a MultiSlotWidgetConfig ({ mode, slots }) covering
@@ -346,9 +381,17 @@ export function TaskScreen({
           <Text style={{ color: tokens.color.textSecondary }}>{t({ key: 'nav.back' })}</Text>
         </TouchableOpacity>
         <MasteryRing nodeId={nodeId} fill={ringState.fill} state={ringState.state} />
-        <Text style={{ color: tokens.color.textSecondary }}>
-          {t({ key: 'task.xpEarned', vars: { xp: motivation.xp } })}
-        </Text>
+        <View style={styles.headerStats}>
+          {/* Kept-day goal — the streak requires MIN_TASKS_FOR_KEPT_DAY tasks;
+              an invisible goal motivates nobody, so show "Сьогодні: n/goal". */}
+          <Text style={{ color: tokens.color.textSecondary }} testID="kept-day-progress">
+            {t({ key: 'task.dayProgress', vars: { done: keptDayDone, goal: MIN_TASKS_FOR_KEPT_DAY } })}
+          </Text>
+          {/* Total XP — a plain total, not the "+N XP" earned template. */}
+          <Text style={{ color: tokens.color.textSecondary }}>
+            {t({ key: 'task.xpTotal', vars: { xp: motivation.xp } })}
+          </Text>
+        </View>
       </View>
 
       <Text style={[styles.prompt, { color: tokens.color.textPrimary }]}>
@@ -383,13 +426,32 @@ export function TaskScreen({
           </Text>
         ))
       ) : (
-        <Text style={[styles.stepPrompt, { color: tokens.color.textSecondary }]}>
-          {t(currentStep.prompt)}
-        </Text>
+        <>
+          {/* Step indicator — a multi-step task announces its shape upfront
+              ("Крок 1 з 2") instead of surprising the learner with question 2. */}
+          {task.steps.length > 1 ? (
+            <Text
+              style={[styles.stepIndicator, { color: tokens.color.textSecondary }]}
+              testID="step-indicator"
+            >
+              {t({ key: 'task.stepOf', vars: { current: stepIndex + 1, total: task.steps.length } })}
+            </Text>
+          ) : null}
+          <Text style={[styles.stepPrompt, { color: tokens.color.textSecondary }]}>
+            {t(currentStep.prompt)}
+          </Text>
+        </>
       )}
 
       {viewEvent ? (
-        <TaskFeedback viewEvent={viewEvent} nodeMastered={nodeMastered} onContinue={handleContinue} />
+        <TaskFeedback
+          viewEvent={viewEvent}
+          nodeMastered={nodeMastered}
+          progressDeltaPct={progressDeltaPct}
+          attemptsRemaining={attemptsRemaining}
+          onContinue={handleContinue}
+          onPracticeMore={handlePracticeMore}
+        />
       ) : (
         <Widget config={activeWidgetConfig} onOutput={handleWidgetOutput} />
       )}
@@ -405,7 +467,19 @@ interface TaskFeedbackProps {
   readonly viewEvent: SessionViewEvent;
   /** True when the current node has reached mastery — turns 'correct' into a "move on" prompt. */
   readonly nodeMastered: boolean;
+  /**
+   * Mastery-aggregate gain since submit, in whole percent. Rendered only when
+   * > 0 (anti-shame: gains are celebrated, windowed dips show nothing).
+   */
+  readonly progressDeltaPct: number;
+  /**
+   * Honest lower bound on tasks left to mastery (evidence floor remainder).
+   * Rendered only when > 0 — 0 means "not estimable yet" or already mastered.
+   */
+  readonly attemptsRemaining: number;
   readonly onContinue: () => void;
+  /** Secondary action on the mastered panel: one more task on the SAME node. */
+  readonly onPracticeMore: () => void;
 }
 
 /**
@@ -414,19 +488,29 @@ interface TaskFeedbackProps {
  * via `useT()` under the active theme register (anti-shame invariant: no
  * localized string is ever hand-assembled outside the i18n seam).
  */
-function TaskFeedback({ viewEvent, nodeMastered, onContinue }: TaskFeedbackProps): React.JSX.Element {
+function TaskFeedback({
+  viewEvent,
+  nodeMastered,
+  progressDeltaPct,
+  attemptsRemaining,
+  onContinue,
+  onPracticeMore,
+}: TaskFeedbackProps): React.JSX.Element {
   const { tokens } = useTheme();
   const t = useT();
 
   let body: React.JSX.Element;
   let continueLabelKey = 'task.next';
+  let showPracticeMore = false;
 
   switch (viewEvent.kind) {
     case 'correct': {
       if (nodeMastered) {
-        // Mastery reached — celebrate and invite the learner to their next skill
-        // instead of offering "next problem" on an already-mastered node.
+        // Mastery reached — celebrate and offer BOTH ways forward: the primary
+        // action moves on to the map, the secondary keeps practicing here
+        // (voluntary repetition is a feature of a fluency trainer, not a bug).
         continueLabelKey = 'task.chooseNext';
+        showPracticeMore = true;
         body = (
           <>
             <Text style={{ color: tokens.color.textPrimary }}>{t({ key: 'ring.mastered' })}</Text>
@@ -441,6 +525,18 @@ function TaskFeedback({ viewEvent, nodeMastered, onContinue }: TaskFeedbackProps
           <Text style={{ color: tokens.color.textSecondary }}>
             {t({ key: 'task.xpEarned', vars: { xp: viewEvent.xpAwarded } })}
           </Text>
+          {/* Visible progress: the mastery gain this answer produced (gains only). */}
+          {progressDeltaPct > 0 ? (
+            <Text style={{ color: tokens.color.textSecondary }} testID="mastery-delta">
+              {t({ key: 'task.masteryDelta', vars: { delta: progressDeltaPct } })}
+            </Text>
+          ) : null}
+          {/* Honest remaining-work estimate once only the evidence floor is left. */}
+          {attemptsRemaining > 0 ? (
+            <Text style={{ color: tokens.color.textSecondary }} testID="attempts-remaining">
+              {t({ key: 'task.attemptsRemaining', vars: { count: attemptsRemaining } })}
+            </Text>
+          ) : null}
         </>
       );
       break;
@@ -496,6 +592,19 @@ function TaskFeedback({ viewEvent, nodeMastered, onContinue }: TaskFeedbackProps
       testID="task-feedback"
     >
       {body}
+      {/* Secondary FIRST on the mastered panel: keep practicing here. */}
+      {showPracticeMore ? (
+        <TouchableOpacity
+          style={[styles.secondaryButton, { borderColor: tokens.color.accent }]}
+          onPress={onPracticeMore}
+          accessibilityRole="button"
+          testID="task-feedback-practice-more"
+        >
+          <Text style={[styles.secondaryButtonText, { color: tokens.color.accent }]}>
+            {t({ key: 'task.oneMore' })}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity
         style={[styles.continueButton, { backgroundColor: tokens.color.accent }]}
         onPress={onContinue}
@@ -530,6 +639,13 @@ const styles = StyleSheet.create({
   stepPrompt: {
     fontSize: 15,
   },
+  stepIndicator: {
+    fontSize: 12,
+  },
+  headerStats: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
   recap: {
     gap: 2,
   },
@@ -551,6 +667,17 @@ const styles = StyleSheet.create({
   },
   continueButtonText: {
     color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  secondaryButtonText: {
     fontSize: 15,
     fontWeight: '600',
   },

@@ -102,7 +102,12 @@ export function NodeMapScreen({ onSelectNode }: NodeMapScreenProps): React.JSX.E
             if (!node) return null;
             const availability = availabilityByNode.get(entry.nodeId) ?? 'coming-soon';
             const aggregate = mastery.aggregates.get(entry.nodeId) ?? 0;
-            const ringState = deriveRingState(aggregate, availability, resolveMasteryConfig(node));
+            const ringState = deriveRingState(
+              aggregate,
+              availability,
+              resolveMasteryConfig(node),
+              mastery.abstractAttempts.get(entry.nodeId) ?? 0
+            );
             const inert = ringState.state === 'not-yet-open';
 
             return (

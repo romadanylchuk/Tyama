@@ -63,19 +63,37 @@ export interface CompletenessViolation {
 const REGISTER_SEP = '_';
 
 /**
- * Strip a register suffix from a key, returning the bare key.
- * Example: 'error.notYet_warm' → 'error.notYet'
+ * i18next JSON-v4 plural-category suffixes (Intl.PluralRules categories).
+ * A pluralized, register-variant key is built OUTSIDE-IN as
+ * `key_context_plural` (e.g. 'streak.kept_warm_few'), so the plural suffix
+ * must be stripped FIRST, then the register suffix, to recover the bare key.
+ */
+const PLURAL_SUFFIXES: readonly string[] = ['zero', 'one', 'two', 'few', 'many', 'other'];
+
+/**
+ * Strip an optional trailing plural suffix, then an optional register suffix,
+ * returning the bare key.
+ * Examples: 'error.notYet_warm' → 'error.notYet'
+ *           'streak.kept_warm_few' → 'streak.kept'
  *
  * Returns the original key unchanged if no known suffix is found.
  */
 function stripRegisterSuffix(key: string, registers: readonly Register[]): string {
-  for (const reg of registers) {
-    const suffix = REGISTER_SEP + reg;
-    if (key.endsWith(suffix)) {
-      return key.slice(0, key.length - suffix.length);
+  let stripped = key;
+  for (const plural of PLURAL_SUFFIXES) {
+    const suffix = REGISTER_SEP + plural;
+    if (stripped.endsWith(suffix)) {
+      stripped = stripped.slice(0, stripped.length - suffix.length);
+      break;
     }
   }
-  return key;
+  for (const reg of registers) {
+    const suffix = REGISTER_SEP + reg;
+    if (stripped.endsWith(suffix)) {
+      return stripped.slice(0, stripped.length - suffix.length);
+    }
+  }
+  return stripped;
 }
 
 // ---------------------------------------------------------------------------

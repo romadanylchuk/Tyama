@@ -94,6 +94,17 @@ export function MasteryRing({ nodeId, fill, state }: MasteryRingProps): React.JS
       >
         {label}
       </Text>
+      {/* Numeric progress — the honest companion to the fill bar. Shown for
+          every open state (incl. 'available' at 0%) so the learner always has
+          a concrete number, not just a 64px sliver. Muted nodes stay label-only. */}
+      {!isMuted ? (
+        <Text
+          style={[styles.percent, { color: tokens.color.textSecondary }]}
+          testID={`mastery-ring-percent-${nodeId}`}
+        >
+          {`${Math.round(clampedFill * 100)}%`}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -120,5 +131,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
+  },
+  percent: {
+    fontSize: 11,
   },
 });
