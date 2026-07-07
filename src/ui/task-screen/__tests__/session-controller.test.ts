@@ -25,7 +25,7 @@ import { getProgress, upsertNonMilestoneProgress } from '@/repositories/progress
 import { GRAPH_FIXTURE } from '@/core/graph/graph-fixture';
 import { SCALAR_DECIMAL_POLICY, SCALAR_INTEGER_POLICY } from '@/core/canonical';
 import { resolveLocaleProfile } from '@/parsing';
-import type { GeneratedTask, Step } from '@/core/types';
+import type { GeneratedTask, GraphDefinition, Step } from '@/core/types';
 import type { WidgetOutput } from '@/widgets';
 import { XP_AWARDS, GLOBAL_MOTIVATION_NODE_ID } from '@/motivation';
 import type { ExplanationProvider, ExplanationRequestContext, ExplanationResult } from '@/explanation';
@@ -67,6 +67,49 @@ async function markMastered(nodeId: string): Promise<void> {
     }),
   });
 }
+
+/**
+ * A minimal band ladder shared by the synthetic GHOST_GRAPH nodes below —
+ * the exact band shape does not matter for these tests (SessionController
+ * never generates a task off this graph; it only reads `prerequisites` for
+ * `route()` and node ids for `buildMasteryLookup()`).
+ */
+const STUB_BANDS = [{ minCoordinate: 0, representationLevel: 'concrete', params: {} }] as const;
+
+/**
+ * GHOST_GRAPH — a custom 3-node graph for the UNPRACTICEABLE-target test below.
+ *
+ * Every real fixture node is now generator-backed (registry.ts registers
+ * `addition-within-20` and `unknown-as-missing-addend`), so GRAPH_FIXTURE no
+ * longer has a 'coming-soon' node to route to. `ghost-foundation` is a
+ * synthetic node id that exists ONLY in this test graph and has NO entry in
+ * the real `GENERATORS` registry — `hasGenerator('ghost-foundation')` is
+ * structurally `false`, reproducing the "routed-to a generator-less target"
+ * scenario without mocking the registry module.
+ */
+const GHOST_GRAPH: GraphDefinition = {
+  graphVersion: 'test-only',
+  nodes: [
+    {
+      id: 'ghost-foundation',
+      prerequisites: [],
+      representationLevels: ['concrete'],
+      difficultyHooks: { bands: [...STUB_BANDS] },
+    },
+    {
+      id: 'unknown-as-missing-addend',
+      prerequisites: ['ghost-foundation'],
+      representationLevels: ['pictorial'],
+      difficultyHooks: { bands: [...STUB_BANDS] },
+    },
+    {
+      id: 'fruit-equations',
+      prerequisites: ['ghost-foundation', 'unknown-as-missing-addend'],
+      representationLevels: ['pictorial'],
+      difficultyHooks: { bands: [...STUB_BANDS] },
+    },
+  ],
+};
 
 describe('SessionController.submit', () => {
   it("parse-error: returns a 'parse-hint' view-event and never calls ingestAttempt/route", async () => {
@@ -156,11 +199,14 @@ describe('SessionController.submit', () => {
   });
 
   it("failed-step routed to an UNPRACTICEABLE (coming-soon) target: escalates to the explanation provider instead of dead-ending", async () => {
-    // Seed 'unknown-as-missing-addend' as mastered so fruit-equations' descent
-    // has exactly ONE unmastered prerequisite: 'addition-within-20' — a node
-    // with NO generator. Navigating there would strand the learner on the
-    // coming-soon panel on EVERY wrong answer (and the anti-loop escalation
-    // could never fire, since it requires a second failure AT that node).
+    // GHOST_GRAPH's 'ghost-foundation' is a synthetic prerequisite with NO
+    // registered generator (unlike every node in the real GRAPH_FIXTURE, which
+    // is now fully generator-backed). Seed 'unknown-as-missing-addend' as
+    // mastered so fruit-equations' descent has exactly ONE unmastered
+    // prerequisite: 'ghost-foundation'. Navigating there would strand the
+    // learner on the coming-soon panel on EVERY wrong answer (and the
+    // anti-loop escalation could never fire, since it requires a second
+    // failure AT that node).
     await markMastered('unknown-as-missing-addend');
 
     const explainCalls: ExplanationRequestContext[] = [];
@@ -170,7 +216,7 @@ describe('SessionController.submit', () => {
         return { kind: 'clipboard', promptText: 'fake prompt', status: 'copied' };
       },
     };
-    const controller = new SessionController({ graph: GRAPH_FIXTURE, explanationProvider: fakeProvider });
+    const controller = new SessionController({ graph: GHOST_GRAPH, explanationProvider: fakeProvider });
     const step = makeStep({ skillNode: 'fruit-equations', expected: '5' });
     const event = await controller.submit({
       task: makeTask([step]),
@@ -184,7 +230,7 @@ describe('SessionController.submit', () => {
     expect(event.kind).toBe('escalation');
     if (event.kind === 'escalation') {
       expect(event.result.status).toBe('copied');
-      expect(event.target).toBe('addition-within-20');
+      expect(event.target).toBe('ghost-foundation');
     }
     expect(explainCalls).toHaveLength(1);
     // An unpracticeable target is never diagnostic debt — whereToNext could
@@ -204,12 +250,14 @@ describe('SessionController.submit', () => {
     };
     const controller = new SessionController({ graph: GRAPH_FIXTURE, explanationProvider: fakeProvider });
 
-    // First failure at fruit-equations -> routes to addition-within-20, which
-    // is generator-less, so this ALREADY escalates (see the unpracticeable-
-    // target test above) and records the anti-loop visit on the target.
+    // First failure at fruit-equations -> routes to addition-within-20. Every
+    // GRAPH_FIXTURE node is now generator-backed, so this is a genuine
+    // 'staged-descent' (not an escalation) — but it STILL records the
+    // anti-loop visit on the target, which is what the second failure below
+    // depends on.
     const step1 = makeStep({ skillNode: 'fruit-equations', expected: '5' });
     const task1 = makeTask([step1]);
-    await controller.submit({
+    const event1 = await controller.submit({
       task: task1,
       outputs: [{ rawInput: '9' }],
       localeProfile: UK_PROFILE,
@@ -217,11 +265,16 @@ describe('SessionController.submit', () => {
       contentLanguage: 'uk',
       explanationLanguage: 'uk',
     });
-    expect(explainCalls).toHaveLength(1);
+    expect(event1.kind).toBe('staged-descent');
+    if (event1.kind === 'staged-descent') {
+      expect(event1.target).toBe('addition-within-20');
+    }
+    expect(explainCalls).toHaveLength(0);
 
     // Second failure -- now directly AT addition-within-20 (a root node with
-    // no further prerequisites) -- route()'s own anti-loop escalates, and the
-    // context carries priorApproach (what was already tried).
+    // no further prerequisites) -- route()'s own anti-loop escalates (the
+    // node was already visited once above), and the context carries
+    // priorApproach (what was already tried).
     const step2 = makeStep({ skillNode: 'addition-within-20', expected: '3' });
     const task2 = makeTask([step2]);
     const event2 = await controller.submit({
@@ -239,8 +292,8 @@ describe('SessionController.submit', () => {
       expect(event2.target).toBe('addition-within-20');
     }
 
-    expect(explainCalls).toHaveLength(2);
-    const ctx = explainCalls[1];
+    expect(explainCalls).toHaveLength(1);
+    const ctx = explainCalls[0];
     expect(ctx.contentLanguage).toBe('uk');
     expect(ctx.explanationLanguage).toBe('en');
     expect(ctx.skillNode).toBe('addition-within-20');

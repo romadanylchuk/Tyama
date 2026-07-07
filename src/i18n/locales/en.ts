@@ -293,17 +293,34 @@ const en: CatalogResource = {
     'The parts are {{knownA}} and {{knownB}}. What is the whole?',
 
   // -------------------------------------------------------------------------
+  // addition_20.* — Addition-within-20 generator prompts (vars: a, b).
+  // -------------------------------------------------------------------------
+
+  'addition_20.problem': '{{a}} + {{b}} = ?',
+  'addition_20.step.sum': 'What is {{a}} + {{b}}?',
+
+  // -------------------------------------------------------------------------
+  // missing_addend.* — Unknown-as-missing-addend generator prompts (vars: a, c).
+  // -------------------------------------------------------------------------
+
+  'missing_addend.problem': 'Find the missing addend: {{a}} + ▢ = {{c}}',
+  'missing_addend.step.addend': 'What number must be added to {{a}} to make {{c}}?',
+
+  // -------------------------------------------------------------------------
   // multiplication.* — Multiplication generator prompts (vars: a, b).
   // -------------------------------------------------------------------------
 
   'multiplication.problem': 'What is {{a}} × {{b}}?',
   'multiplication.step.product': 'Find the product: {{a}} × {{b}}.',
+  'multiplication.problem.missing_factor': 'Find the missing factor: {{a}} × ▢ = {{c}}',
+  'multiplication.step.missing_factor': 'What number must {{a}} be multiplied by to make {{c}}?',
 
   // -------------------------------------------------------------------------
   // fraction_simpl.* — Fraction-simplification prompts (vars: num, den).
   // -------------------------------------------------------------------------
 
   'fraction_simpl.problem': 'Simplify the fraction {{num}}/{{den}} to lowest terms.',
+  'fraction_simpl.step.gcd': 'What is the greatest common divisor you can simplify {{num}}/{{den}} by?',
   'fraction_simpl.step.numerator': 'What is the numerator of {{num}}/{{den}} simplified?',
   'fraction_simpl.step.denominator': 'What is the denominator of {{num}}/{{den}} simplified?',
 
@@ -314,11 +331,15 @@ const en: CatalogResource = {
   'fruit_eq.problem.unknowns_1': 'Equation: {{coeff}} × 🍎 = {{total}}.',
   'fruit_eq.problem.unknowns_2':
     'Equations:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}\nFind 🍎, then 🍌.',
+  'fruit_eq.problem.unknowns_3':
+    'Equations:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}\n🍌 + 🍒 = {{total3}}\nFind 🍎, then 🍌, then 🍒.',
   'fruit_eq.step.apple': 'What is 🍎?',
   'fruit_eq.step.banana': 'What is 🍌?',
+  'fruit_eq.step.cherry': 'What is 🍒?',
   // Short recap labels — shown as "🍎 = 2" while a later fruit is being solved.
   'fruit_eq.recap.apple': '🍎',
   'fruit_eq.recap.banana': '🍌',
+  'fruit_eq.recap.cherry': '🍒',
 
   // -------------------------------------------------------------------------
   // widget.* — Answer-widget chrome labels (ordinary).

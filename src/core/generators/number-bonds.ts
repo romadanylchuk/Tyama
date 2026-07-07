@@ -13,17 +13,27 @@
  *   into two parts: whole = partA + partB. One of the three values is hidden
  *   (the missingSlot) and the learner must supply it.
  *
- * BAND PARAMS (`params: { wholeMax: number; missingSlot: 'partA' | 'partB' | 'whole' }`):
+ * BAND PARAMS (`params: { wholeMax: number; missingSlot: 'partA' | 'partB' | 'whole' | 'random' }`):
  *   - wholeMax: the maximum value for the whole (inclusive upper bound).
  *   - missingSlot: which of the three values the learner must find.
- *     'partA' → learner solves for partA.
- *     'partB' → learner solves for partB.
- *     'whole' → learner solves for the whole.
+ *     'partA'  → learner solves for partA.
+ *     'partB'  → learner solves for partB.
+ *     'whole'  → learner solves for the whole.
+ *     'random' → the SLOT itself is drawn per-instance from `rng` (still
+ *                backward generation: the slot draw happens alongside the
+ *                other pre-answer draws, before the problem is built). The
+ *                resolved slot is always one of 'partA' | 'partB' | 'whole'
+ *                by the time the `GeneratedTask` is built — 'random' never
+ *                appears on `NumberBondsConcreteParams`, `Step`, or in any
+ *                i18n key/var (those reuse the existing per-slot keys).
  *
  * CPA LADDER (shipped defaults, pedagogy-pass calibrates later):
- *   Band 0 concrete  [0.0, 0.4) → 'manipulative' inputMode (number-bond diagram)
- *   Band 1 pictorial [0.4, 0.7) → 'choice' inputMode (multiple choice options)
- *   Band 2 abstract  [0.7, 1.0+) → 'number' inputMode (free keypad entry)
+ *   Band 0 concrete  [0.00, 0.40) → 'manipulative' inputMode (number-bond diagram)
+ *   Band 1 pictorial [0.40, 0.70) → 'choice' inputMode (multiple choice options)
+ *   Band 2 abstract  [0.70, 0.85) → 'number' inputMode (free keypad entry)
+ *   Band 3 abstract  [0.85, 1.00+) → 'number' inputMode; wholeMax 50, missingSlot
+ *                    'random' (larger wholes + per-instance slot variety for
+ *                    high-mastery learners — see BAND PARAMS above).
  *
  * STEPS:
  *   A single integer step — the missing value.
@@ -65,8 +75,13 @@ interface NumberBondsBandParams {
   /**
    * Which of the three values (partA, partB, whole) is the unknown.
    * The learner must supply the value at this slot.
+   *
+   * 'random' is a per-instance instruction to `instantiate()`: draw the slot
+   * itself from `rng` (see `drawMissingSlot`) rather than reading a fixed
+   * literal. This lets a single band present slot variety across instances
+   * instead of always asking for the same one.
    */
-  readonly missingSlot: 'partA' | 'partB' | 'whole';
+  readonly missingSlot: 'partA' | 'partB' | 'whole' | 'random';
 }
 
 /**
@@ -75,21 +90,39 @@ interface NumberBondsBandParams {
  * params come from the graph asset which is validated at startup).
  */
 function narrowBandParams(params: unknown): NumberBondsBandParams {
+  const missingSlot = (params as Record<string, unknown> | null)?.missingSlot;
   if (
     typeof params !== 'object' ||
     params === null ||
     typeof (params as Record<string, unknown>).wholeMax !== 'number' ||
-    ((params as Record<string, unknown>).missingSlot !== 'partA' &&
-      (params as Record<string, unknown>).missingSlot !== 'partB' &&
-      (params as Record<string, unknown>).missingSlot !== 'whole')
+    (missingSlot !== 'partA' &&
+      missingSlot !== 'partB' &&
+      missingSlot !== 'whole' &&
+      missingSlot !== 'random')
   ) {
     throw new Error(
       '[number-bonds] Band params have unexpected shape. ' +
-        "Expected { wholeMax: number; missingSlot: 'partA' | 'partB' | 'whole' }. " +
+        "Expected { wholeMax: number; missingSlot: 'partA' | 'partB' | 'whole' | 'random' }. " +
         `Got: ${JSON.stringify(params)}`
     );
   }
   return params as NumberBondsBandParams;
+}
+
+/**
+ * Resolve a per-instance missing slot when the band asks for `'random'`.
+ *
+ * Draws a single integer in [0, 2] via `rng.nextInt` (backward generation:
+ * this draw happens BEFORE the parts/whole are constructed, alongside the
+ * other pre-answer draws) and maps it onto the three slots. Literal-slot
+ * bands never call this — they keep their exact existing draw sequence
+ * (byte-identical for a fixed seed).
+ */
+function drawMissingSlot(rng: SeededRng): 'partA' | 'partB' | 'whole' {
+  const roll = rng.nextInt(0, 2);
+  if (roll === 0) return 'partA';
+  if (roll === 1) return 'partB';
+  return 'whole';
 }
 
 // ---------------------------------------------------------------------------
@@ -130,12 +163,21 @@ interface NumberBondsConcreteParams {
  * Construction invariant: whole === partA + partB, all non-negative integers,
  * 0 <= partA, 1 <= partB, whole <= wholeMax.
  *
+ * SLOT VARIETY (`missingSlot: 'random'`): the slot is drawn FIRST, still
+ * before the parts/whole are constructed (a pre-answer draw, same spirit as
+ * backward generation). Literal-slot bands take zero extra `rng` draws here.
+ *
  * @param band - The selected difficulty band (opaque params narrowed here).
  * @param rng  - Seeded PRNG; all randomness flows through this.
  * @returns     Concrete task parameters with pre-chosen answer value.
  */
 function instantiate(band: Band, rng: SeededRng): NumberBondsConcreteParams {
   const p = narrowBandParams(band.params);
+
+  // Resolve the missing slot. Only 'random' bands spend an extra rng draw here
+  // — existing literal-slot bands are unaffected (no draw-order change, so
+  // they stay byte-identical to their pre-existing behaviour for a fixed seed).
+  const missingSlot = p.missingSlot === 'random' ? drawMissingSlot(rng) : p.missingSlot;
 
   // Draw partA from [0, wholeMax-1] so there is always room for partB >= 1.
   const partA = rng.nextInt(0, p.wholeMax - 1);
@@ -148,7 +190,7 @@ function instantiate(band: Band, rng: SeededRng): NumberBondsConcreteParams {
     partA,
     partB,
     whole,
-    missingSlot: p.missingSlot,
+    missingSlot,
     representationLevel: band.representationLevel,
   };
 }

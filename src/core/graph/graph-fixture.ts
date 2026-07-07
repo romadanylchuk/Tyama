@@ -20,12 +20,18 @@
  *   calibrates these values later as a pure data change (no code change needed).
  *
  * TWO VERSION AXES:
- *   `graphVersion: '0.2.0'` tracks the graph-content axis ONLY.
+ *   `graphVersion: '0.2.1'` tracks the graph-content axis ONLY.
  *   It is NEVER conflated with `DB_SCHEMA_VERSION` / `PRAGMA user_version`.
  *
+ * VERSION HISTORY:
+ *   0.2.1 — `addition-within-20` and `unknown-as-missing-addend` gain real
+ *           band ladders + registered generators (previously stub single-band
+ *           generator-less placeholders). No node identity changed (no
+ *           split/merge/rename), so `GRAPH_MIGRATIONS['0.2.0']` is a no-op.
+ *
  * NODES (smoke-test fixture, not MVP catalog):
- *   - `addition-within-20`        — root node, no prerequisites, no generator.
- *   - `unknown-as-missing-addend` — prerequisite: addition-within-20, no generator.
+ *   - `addition-within-20`        — root node, no prerequisites; generator-backed.
+ *   - `unknown-as-missing-addend` — prerequisite: addition-within-20; generator-backed.
  *   - `fruit-equations`           — generator-backed node; prerequisites: both above.
  *   - `number-bonds`              — generator-backed node; prerequisite: addition-within-20.
  *   - `multiplication`            — generator-backed node; prerequisite: number-bonds.
@@ -45,14 +51,22 @@ import type { GraphDefinition } from '@/core/types';
  * The indirection enables future OTA graph swaps with no consumer change.
  */
 export const GRAPH_FIXTURE: GraphDefinition = {
-  graphVersion: '0.2.0',
+  graphVersion: '0.2.1',
   fixture: true,
   nodes: [
     // -------------------------------------------------------------------------
     // addition-within-20 — root node (no prerequisites)
-    // Skill: recognising addition facts for sums ≤ 20.
-    // No generator in stage-02 (generator-less node — 'coming-soon' status).
-    // Minimal single-band ladder (concrete level only).
+    // Skill: recognising addition facts for sums ≤ 20 (a + b = sum).
+    // Generator-backed: the additionWithin20 generator draws the sum first
+    // (backward construction), then splits it into two addends.
+    //
+    // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
+    //   Band 0 (concrete)  [0.00, 0.40) — manipulative; maxTotal 10
+    //   Band 1 (pictorial) [0.40, 0.70) — choice;       maxTotal 15
+    //   Band 2 (abstract)  [0.70, 1.00+) — number-pad;   maxTotal 20
+    //
+    // `params` shape: { maxTotal: number }
+    // Only the addition-within-20 generator narrows this (core never inspects it).
     // -------------------------------------------------------------------------
     {
       id: 'addition-within-20',
@@ -63,7 +77,17 @@ export const GRAPH_FIXTURE: GraphDefinition = {
           {
             minCoordinate: 0,
             representationLevel: 'concrete',
-            params: {},
+            params: { maxTotal: 10 },
+          },
+          {
+            minCoordinate: 0.4,
+            representationLevel: 'pictorial',
+            params: { maxTotal: 15 },
+          },
+          {
+            minCoordinate: 0.7,
+            representationLevel: 'abstract',
+            params: { maxTotal: 20 },
           },
         ],
       },
@@ -71,20 +95,38 @@ export const GRAPH_FIXTURE: GraphDefinition = {
 
     // -------------------------------------------------------------------------
     // unknown-as-missing-addend — prerequisite: addition-within-20
-    // Skill: identifying the missing addend in an equation (? + b = c).
-    // No generator in stage-02 (generator-less node — 'coming-soon' status).
-    // Minimal single-band ladder (pictorial level only).
+    // Skill: identifying the missing addend in an equation (a + ▢ = c) — the
+    // first bridge to algebra. Generator-backed: the unknownAsMissingAddend
+    // generator draws the missing addend `x` first (backward construction).
+    //
+    // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
+    //   Band 0 (concrete)  [0.00, 0.40) — manipulative; maxTotal 10
+    //   Band 1 (pictorial) [0.40, 0.70) — choice;       maxTotal 15
+    //   Band 2 (abstract)  [0.70, 1.00+) — number-pad;   maxTotal 20
+    //
+    // `params` shape: { maxTotal: number }
+    // Only the unknown-as-missing-addend generator narrows this (core never inspects it).
     // -------------------------------------------------------------------------
     {
       id: 'unknown-as-missing-addend',
       prerequisites: ['addition-within-20'],
-      representationLevels: ['pictorial', 'abstract'],
+      representationLevels: ['concrete', 'pictorial', 'abstract'],
       difficultyHooks: {
         bands: [
           {
             minCoordinate: 0,
+            representationLevel: 'concrete',
+            params: { maxTotal: 10 },
+          },
+          {
+            minCoordinate: 0.4,
             representationLevel: 'pictorial',
-            params: {},
+            params: { maxTotal: 15 },
+          },
+          {
+            minCoordinate: 0.7,
+            representationLevel: 'abstract',
+            params: { maxTotal: 20 },
           },
         ],
       },
@@ -96,9 +138,12 @@ export const GRAPH_FIXTURE: GraphDefinition = {
     // The live node for stage-02; the fruit-equations generator binds to this.
     //
     // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
-    //   Band 0 (easy)    [0.00, 0.40)  — pictorial,  1 unknown, range  5, no negatives
-    //   Band 1 (medium)  [0.40, 0.70)  — pictorial,  2 unknowns, range 10, no negatives
-    //   Band 2 (hard)    [0.70, 1.00+) — abstract,   2 unknowns, range 20, negatives OK
+    //   Band 0 (easy)         [0.00, 0.40)  — pictorial,  1 unknown, range  5, no negatives
+    //   Band 1 (medium)       [0.40, 0.70)  — pictorial,  2 unknowns, range 10, no negatives
+    //   Band 2 (hard)         [0.70, 0.85)  — abstract,   2 unknowns, range 20, negatives OK
+    //   Band 3 (cherry-tier)  [0.85, 1.00+) — abstract,   3 unknowns, range 20, negatives OK
+    //     — the triangular 3-equation chain (🍎×coeff=total1, 🍎+🍌=total2, 🍌+🍒=total3),
+    //     reserved for high-mastery learners (fruit-equations enhancement).
     //
     // `params` shape: { unknowns: number; range: number; negatives: boolean }
     // Only the fruit-equations generator narrows this (core never inspects it).
@@ -124,6 +169,11 @@ export const GRAPH_FIXTURE: GraphDefinition = {
             representationLevel: 'abstract',
             params: { unknowns: 2, range: 20, negatives: true },
           },
+          {
+            minCoordinate: 0.85,
+            representationLevel: 'abstract',
+            params: { unknowns: 3, range: 20, negatives: true },
+          },
         ],
       },
     },
@@ -136,9 +186,12 @@ export const GRAPH_FIXTURE: GraphDefinition = {
     // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
     //   Band 0 (concrete)   [0.00, 0.40)  — manipulative; wholeMax 10, missing 'whole'
     //   Band 1 (pictorial)  [0.40, 0.70)  — choice;       wholeMax 10, missing 'partB'
-    //   Band 2 (abstract)   [0.70, 1.00+) — number-pad;   wholeMax 20, missing 'partA'
+    //   Band 2 (abstract)   [0.70, 0.85)  — number-pad;   wholeMax 20, missing 'partA'
+    //   Band 3 (mastery)    [0.85, 1.00+) — number-pad;   wholeMax 50, missing 'random'
+    //     — larger wholes + per-instance slot variety (drawn from rng, not a fixed
+    //     literal) for high-mastery learners (number-bonds difficulty enhancement).
     //
-    // `params` shape: { wholeMax: number; missingSlot: 'partA' | 'partB' | 'whole' }
+    // `params` shape: { wholeMax: number; missingSlot: 'partA' | 'partB' | 'whole' | 'random' }
     // Only the number-bonds generator narrows this (core never inspects it).
     // -------------------------------------------------------------------------
     {
@@ -162,6 +215,11 @@ export const GRAPH_FIXTURE: GraphDefinition = {
             representationLevel: 'abstract',
             params: { wholeMax: 20, missingSlot: 'partA' },
           },
+          {
+            minCoordinate: 0.85,
+            representationLevel: 'abstract',
+            params: { wholeMax: 50, missingSlot: 'random' },
+          },
         ],
       },
     },
@@ -172,11 +230,16 @@ export const GRAPH_FIXTURE: GraphDefinition = {
     // Skill: a × b = product; learner supplies the product (abstract only).
     //
     // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
-    //   Band 0 (easy)    [0.00, 0.40)  — abstract; aMax 5,  bMax 5
-    //   Band 1 (medium)  [0.40, 0.70)  — abstract; aMax 9,  bMax 9
-    //   Band 2 (hard)    [0.70, 1.00+) — abstract; aMax 12, bMax 12
+    //   Band 0 (easy)     [0.00, 0.40)  — abstract; form 'product';        aMax 5,  bMax 5
+    //   Band 1 (medium)   [0.40, 0.70)  — abstract; form 'product';        aMax 9,  bMax 9
+    //   Band 2 (hard)     [0.70, 0.85)  — abstract; form 'product';        aMax 12, bMax 12
+    //   Band 3 (division-readiness) [0.85, 1.00+) — abstract; form 'missing-factor'; tableMax 12
     //
-    // `params` shape: { aMax: number; bMax: number }
+    // `params` shape (discriminated union on `form`):
+    //   - `{ aMax: number; bMax: number; form?: 'product' }` (bands 0-2)
+    //   - `{ form: 'missing-factor'; tableMax: number }` (band 3 — the
+    //     a × ▢ = c bridge toward division; multiplicative mirror of the
+    //     `unknown-as-missing-addend` node).
     // Only the multiplication generator narrows this (core never inspects it).
     //
     // Per-node mastery override: `mastery.targetMs` is the exemplar of config-as-data
@@ -204,6 +267,11 @@ export const GRAPH_FIXTURE: GraphDefinition = {
             representationLevel: 'abstract',
             params: { aMax: 12, bMax: 12 },
           },
+          {
+            minCoordinate: 0.85,
+            representationLevel: 'abstract',
+            params: { form: 'missing-factor', tableMax: 12 },
+          },
         ],
         mastery: { targetMs: 5000 },
       },
@@ -212,19 +280,33 @@ export const GRAPH_FIXTURE: GraphDefinition = {
     // -------------------------------------------------------------------------
     // fraction-simplification — generator-backed node (stage-05)
     // Prerequisites: fruit-equations.
-    // Skill: simplify (p·k)/(q·k) → p/q; two ordered integer steps.
+    // Skill: simplify (p·k)/(q·k) → p/q; two ordered integer steps by default,
+    // three (gcd-first) on the middle gcd-scaffold band — see below.
     //
     // Difficulty band ladder (shipped defaults — calibrated by pedagogy-pass):
-    //   Band 0 (concrete)  [0.00, 0.60)  — manipulative fraction-bar; small denominators
-    //   Band 1 (abstract)  [0.60, 1.00+) — multi-slot entry; larger denominators
+    //   Band 0 (concrete)     [0.00, 0.40)  — manipulative fraction-bar; small
+    //                                          denominators; TWO steps
+    //                                          (numerator, denominator).
+    //   Band 1 (gcd-scaffold) [0.40, 0.70)  — pictorial, multi-slot entry;
+    //                                          `includeGcdStep: true` — THREE
+    //                                          steps (gcd, numerator,
+    //                                          denominator). The learner
+    //                                          explicitly names the common
+    //                                          divisor before simplifying,
+    //                                          bridging the concrete
+    //                                          fraction-bar to the abstract
+    //                                          two-step form below.
+    //   Band 2 (abstract)     [0.70, 1.00+) — multi-slot entry; larger
+    //                                          denominators; back to TWO steps
+    //                                          (numerator, denominator).
     //
-    // `params` shape: { maxDenominator: number; maxFactor: number }
+    // `params` shape: { maxDenominator: number; maxFactor: number; includeGcdStep?: boolean }
     // Only the fraction-simplification generator narrows this (core never inspects it).
     // -------------------------------------------------------------------------
     {
       id: 'fraction-simplification',
       prerequisites: ['fruit-equations'],
-      representationLevels: ['concrete', 'abstract'],
+      representationLevels: ['concrete', 'pictorial', 'abstract'],
       difficultyHooks: {
         bands: [
           {
@@ -233,7 +315,12 @@ export const GRAPH_FIXTURE: GraphDefinition = {
             params: { maxDenominator: 6, maxFactor: 3 },
           },
           {
-            minCoordinate: 0.6,
+            minCoordinate: 0.4,
+            representationLevel: 'pictorial',
+            params: { maxDenominator: 8, maxFactor: 3, includeGcdStep: true },
+          },
+          {
+            minCoordinate: 0.7,
             representationLevel: 'abstract',
             params: { maxDenominator: 12, maxFactor: 5 },
           },

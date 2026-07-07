@@ -23,23 +23,43 @@
  *     4. Present n/d = (p·k)/(q·k) to the learner (the unreduced fraction).
  *     5. The learner must supply p (numerator step) then q (denominator step).
  *
- * BAND PARAMS (`params: { maxDenominator: number; maxFactor: number }`):
+ * BAND PARAMS (`params: { maxDenominator: number; maxFactor: number; includeGcdStep?: boolean }`):
  *   - maxDenominator: maximum denominator q (inclusive). Draw from [2, maxDenominator].
  *   - maxFactor:      maximum scale factor k (inclusive). Draw from [2, maxFactor].
+ *   - includeGcdStep: optional, defaults to false. When true, the task is
+ *     decomposed into THREE ordered steps (gcd, then numerator, then
+ *     denominator) instead of the default two — see GCD-SCAFFOLD BAND below.
  *
  * CPA LADDER (shipped defaults, pedagogy-pass calibrates later):
- *   Band 0 concrete  [0.0, 0.4) → 'manipulative' inputMode (fraction-bar model)
- *                                  { maxDenominator: 4, maxFactor: 2 }
- *   Band 1 pictorial [0.4, 0.7) → 'multi-slot'   inputMode
- *                                  { maxDenominator: 8, maxFactor: 3 }
- *   Band 2 abstract  [0.7, 1.0+) → 'multi-slot'  inputMode
- *                                  { maxDenominator: 12, maxFactor: 4 }
+ *   Band 0 concrete     [0.0, 0.4) → 'manipulative' inputMode (fraction-bar model)
+ *                                     { maxDenominator: 4, maxFactor: 2 }
+ *                                     TWO steps (numerator, denominator).
+ *   Band 1 gcd-scaffold [0.4, 0.7) → 'multi-slot'   inputMode, pictorial
+ *                                     { maxDenominator: 8, maxFactor: 3, includeGcdStep: true }
+ *                                     THREE steps (gcd, numerator, denominator) — see below.
+ *   Band 2 abstract     [0.7, 1.0+) → 'multi-slot'  inputMode
+ *                                     { maxDenominator: 12, maxFactor: 4 }
+ *                                     TWO steps (numerator, denominator).
  *
- * STEPS (TWO integer steps — NOT a fraction branch in the checker):
- *   Step 0 (numerator):   expected = canonicalize(p), SCALAR_INTEGER_POLICY.
- *   Step 1 (denominator): expected = canonicalize(q), SCALAR_INTEGER_POLICY.
- *   Both use the EXISTING integer path in checkAnswer — D9 does NOT use the
- *   Phase-2 fraction checker branch (two integer steps; each width=1).
+ * GCD-SCAFFOLD BAND (middle-tier scaffolding enhancement):
+ *   A band with `includeGcdStep: true` inserts a THIRD, FIRST-ordered step that
+ *   elicits the greatest common divisor of the presented (unreduced) fraction
+ *   before the numerator/denominator steps. Since the base pair (p, q) is
+ *   drawn coprime and the presented fraction is (p·k)/(q·k), the gcd of the
+ *   presented numerator/denominator is exactly k — this step therefore
+ *   reuses the already-drawn `k` with no extra `rng` draw and no change to
+ *   the existing draw sequence (byte-identical for bands that omit the flag).
+ *
+ * STEPS (integer steps only — NOT a fraction branch in the checker):
+ *   Two-step bands (default, `includeGcdStep` false/absent):
+ *     Step 0 (numerator):   expected = canonicalize(p), SCALAR_INTEGER_POLICY.
+ *     Step 1 (denominator): expected = canonicalize(q), SCALAR_INTEGER_POLICY.
+ *   Three-step bands (`includeGcdStep: true`):
+ *     Step 0 (gcd):         expected = canonicalize(k), SCALAR_INTEGER_POLICY.
+ *     Step 1 (numerator):   expected = canonicalize(p), SCALAR_INTEGER_POLICY.
+ *     Step 2 (denominator): expected = canonicalize(q), SCALAR_INTEGER_POLICY.
+ *   All steps use the EXISTING integer path in checkAnswer — D9 does NOT use the
+ *   Phase-2 fraction checker branch (integer steps only; each width=1).
  *   This makes D9 robust to D2 regardless.
  *
  * PROVES D1 VIA task.solution:
@@ -83,6 +103,13 @@ interface FractionSimplificationBandParams {
   readonly maxDenominator: number;
   /** Maximum scale factor k (inclusive). Draw from [2, maxFactor]. */
   readonly maxFactor: number;
+  /**
+   * Optional; defaults to false. When true, this band decomposes the task
+   * into THREE ordered steps (gcd, then numerator, then denominator) instead
+   * of the default two — the GCD-first scaffolding band. See the file header
+   * "GCD-SCAFFOLD BAND" note.
+   */
+  readonly includeGcdStep?: boolean;
 }
 
 /**
@@ -91,15 +118,17 @@ interface FractionSimplificationBandParams {
  * params come from the graph asset which is validated at startup).
  */
 function narrowBandParams(params: unknown): FractionSimplificationBandParams {
+  const includeGcdStep = (params as Record<string, unknown> | null)?.includeGcdStep;
   if (
     typeof params !== 'object' ||
     params === null ||
     typeof (params as Record<string, unknown>).maxDenominator !== 'number' ||
-    typeof (params as Record<string, unknown>).maxFactor !== 'number'
+    typeof (params as Record<string, unknown>).maxFactor !== 'number' ||
+    (includeGcdStep !== undefined && typeof includeGcdStep !== 'boolean')
   ) {
     throw new Error(
       '[fraction-simplification] Band params have unexpected shape. ' +
-        'Expected { maxDenominator: number; maxFactor: number }. ' +
+        'Expected { maxDenominator: number; maxFactor: number; includeGcdStep?: boolean }. ' +
         `Got: ${JSON.stringify(params)}`
     );
   }
@@ -156,6 +185,12 @@ interface FractionSimplificationConcreteParams {
   readonly presentedDen: number;
   /** The representation level from the band. */
   readonly representationLevel: 'concrete' | 'pictorial' | 'abstract';
+  /**
+   * Whether this band's task decomposes into THREE ordered steps (gcd,
+   * numerator, denominator) rather than the default two. Resolved from
+   * `band.params.includeGcdStep ?? false`.
+   */
+  readonly includeGcdStep: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +245,7 @@ function instantiate(band: Band, rng: SeededRng): FractionSimplificationConcrete
     presentedNum,
     presentedDen,
     representationLevel: band.representationLevel,
+    includeGcdStep: bp.includeGcdStep ?? false,
   };
 }
 
@@ -222,13 +258,18 @@ function instantiate(band: Band, rng: SeededRng): FractionSimplificationConcrete
  *
  * Produces a complete `GeneratedTask` from the given `DifficultyParams` and RNG.
  *
- * TWO ordered integer steps:
- *   Step 0 (numerator):   expected = canonicalize(p), SCALAR_INTEGER_POLICY.
- *   Step 1 (denominator): expected = canonicalize(q), SCALAR_INTEGER_POLICY.
+ * Ordered integer steps (two by default; three for `includeGcdStep` bands):
+ *   Default:
+ *     Step 0 (numerator):   expected = canonicalize(p), SCALAR_INTEGER_POLICY.
+ *     Step 1 (denominator): expected = canonicalize(q), SCALAR_INTEGER_POLICY.
+ *   `includeGcdStep: true` (gcd-scaffold band):
+ *     Step 0 (gcd):         expected = canonicalize(k), SCALAR_INTEGER_POLICY.
+ *     Step 1 (numerator):   expected = canonicalize(p), SCALAR_INTEGER_POLICY.
+ *     Step 2 (denominator): expected = canonicalize(q), SCALAR_INTEGER_POLICY.
  *
- * Both steps use the EXISTING integer checking path (width=1 each) — this
+ * All steps use the EXISTING integer checking path (width=1 each) — this
  * generator does NOT use the Phase-2 fraction checker branch. It is robust to
- * D2 by design: two integer steps, two width-1 outputs, no fraction fold needed.
+ * D2 by design: integer steps only, each a width-1 output, no fraction fold needed.
  *
  * task.solution = canonicalizeFraction(p, q) — PROVES D1:
  *   - Since gcd(p, q) === 1 and q >= 2, canonicalizeFraction(p, q) === `${p}/${q}`.
@@ -275,7 +316,24 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
     vars: { num: concrete.presentedNum, den: concrete.presentedDen },
   };
 
-  // Step 0: the reduced numerator p.
+  // Step (gcd, only for includeGcdStep bands): the greatest common divisor of
+  // the PRESENTED (unreduced) fraction. Since (p, q) is a coprime base pair,
+  // gcd(presentedNum, presentedDen) === k * gcd(p, q) === k — this reuses the
+  // already-drawn `k` with no extra `rng` draw.
+  // expected = canonicalize(k) — integer scalar via SCALAR_INTEGER_POLICY.
+  const stepGcd: Step = {
+    prompt: {
+      key: 'fraction_simpl.step.gcd',
+      vars: { num: concrete.presentedNum, den: concrete.presentedDen },
+    },
+    inputMode,
+    expected: canonicalize(concrete.k),
+    skillNode: 'fraction-simplification',
+    elicitFromMastery: difficulty.elicitFromMastery,
+    normalizationPolicy: SCALAR_INTEGER_POLICY,
+  } satisfies Step;
+
+  // Step (numerator): the reduced numerator p.
   // expected = canonicalize(p) — integer scalar via SCALAR_INTEGER_POLICY.
   // prompt.vars carry the full presented fraction so the step label can say
   // "What is the numerator of the simplified form of n/d?"
@@ -291,7 +349,7 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
     normalizationPolicy: SCALAR_INTEGER_POLICY,
   } satisfies Step;
 
-  // Step 1: the reduced denominator q.
+  // Step (denominator): the reduced denominator q.
   // expected = canonicalize(q) — integer scalar via SCALAR_INTEGER_POLICY.
   const stepDenominator: Step = {
     prompt: {
@@ -305,6 +363,12 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
     normalizationPolicy: SCALAR_INTEGER_POLICY,
   } satisfies Step;
 
+  // Ordered steps: three (gcd, numerator, denominator) when the band asks for
+  // the gcd-first scaffold, otherwise the default two (numerator, denominator).
+  const steps: Step[] = concrete.includeGcdStep
+    ? [stepGcd, stepNumerator, stepDenominator]
+    : [stepNumerator, stepDenominator];
+
   // task.solution = canonicalizeFraction(p, q) — the sole fraction-emission site.
   // This PROVES D1: if canonicalizeFraction is correct, solution === `${p}/${q}`.
   // (gcd(p, q) === 1 and q >= 2 guarantee the result is always a `p/q` string,
@@ -317,7 +381,7 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
       representation: concrete.representationLevel,
     },
     solution,
-    steps: [stepNumerator, stepDenominator],
+    steps,
     representation: concrete.representationLevel,
     skillNode: 'fraction-simplification',
   };
@@ -337,10 +401,11 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
  *
  * D9 CHECKER RELATIONSHIP:
  *   This generator does NOT use the Phase-2 fraction checker branch.
- *   The two integer steps (numerator p, denominator q) are checked independently
- *   via canonicalize() + SCALAR_INTEGER_POLICY — the existing integer path.
- *   task.solution uses canonicalizeFraction() to prove D1, but the checker
- *   compares outputs against step.expected (which are plain integer strings).
+ *   The integer steps (gcd k when present, numerator p, denominator q) are
+ *   checked independently via canonicalize() + SCALAR_INTEGER_POLICY — the
+ *   existing integer path. task.solution uses canonicalizeFraction() to prove
+ *   D1, but the checker compares outputs against step.expected (which are
+ *   plain integer strings).
  */
 export const fractionSimplification: Generator = {
   skillNode: 'fraction-simplification',

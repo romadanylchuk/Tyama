@@ -16,6 +16,7 @@ import { settings } from '@/repositories/settings-repository';
 import { upsertNonMilestoneProgress } from '@/repositories/progress-repository';
 import { serializeMasteryMetrics } from '@/core/mastery/mastery-metrics';
 import { GRAPH_FIXTURE } from '@/core/graph/graph-fixture';
+import * as registryModule from '@/core/generators/registry';
 import { ThemeProvider } from '@/theme';
 import { TaskScreen } from '../TaskScreen';
 import { SessionController } from '../session-controller';
@@ -62,29 +63,43 @@ describe('TaskScreen', () => {
   });
 
   it('renders a calm coming-soon panel (not a frozen screen) when routed to a generator-less node — regression for the staged-descent dead-end', async () => {
-    // `addition-within-20` is a real root prerequisite in the graph but ships no
-    // generator (coming-soon). Diagnostic staged-descent can navigate here; the
-    // screen must degrade calmly with a way forward instead of freezing on a
-    // stale task/feedback card.
-    const onExit = jest.fn();
-    const controller = new SessionController({ graph: GRAPH_FIXTURE });
-    const { getByTestId, queryByTestId } = render(
-      <ThemeProvider>
-        <TaskScreen
-          nodeId="addition-within-20"
-          controller={controller}
-          onExit={onExit}
-          onNavigate={jest.fn()}
-        />
-      </ThemeProvider>
-    );
+    // `addition-within-20` is now generator-backed in the real registry (every
+    // GRAPH_FIXTURE node is), so this test mocks `getGenerator` to pretend it
+    // is still coming-soon for THIS node only — everything else (the graph,
+    // every other registry lookup) stays real. Diagnostic staged-descent can
+    // navigate to a generator-less node in general; the screen must degrade
+    // calmly with a way forward instead of freezing on a stale task/feedback
+    // card.
+    const realGetGenerator = registryModule.getGenerator;
+    const getGeneratorSpy = jest
+      .spyOn(registryModule, 'getGenerator')
+      .mockImplementation((nodeId) =>
+        nodeId === 'addition-within-20' ? undefined : realGetGenerator(nodeId)
+      );
 
-    await waitFor(() => expect(getByTestId('task-screen-coming-soon')).toBeTruthy());
-    // It must NOT render the normal task surface (no frozen widget/keypad).
-    expect(queryByTestId('task-screen')).toBeNull();
-    // The forward action returns to the node map.
-    fireEvent.press(getByTestId('coming-soon-continue'));
-    expect(onExit).toHaveBeenCalledTimes(1);
+    try {
+      const onExit = jest.fn();
+      const controller = new SessionController({ graph: GRAPH_FIXTURE });
+      const { getByTestId, queryByTestId } = render(
+        <ThemeProvider>
+          <TaskScreen
+            nodeId="addition-within-20"
+            controller={controller}
+            onExit={onExit}
+            onNavigate={jest.fn()}
+          />
+        </ThemeProvider>
+      );
+
+      await waitFor(() => expect(getByTestId('task-screen-coming-soon')).toBeTruthy());
+      // It must NOT render the normal task surface (no frozen widget/keypad).
+      expect(queryByTestId('task-screen')).toBeNull();
+      // The forward action returns to the node map.
+      fireEvent.press(getByTestId('coming-soon-continue'));
+      expect(onExit).toHaveBeenCalledTimes(1);
+    } finally {
+      getGeneratorSpy.mockRestore();
+    }
   });
 
   it('routes a mastered node to the node map on a correct answer instead of re-drilling — regression for the mastered-node loop', async () => {
@@ -161,7 +176,7 @@ describe('TaskScreen', () => {
   });
 
   it('mounts a correctly-configured NumberWidget slot for a multi-slot node (fraction-simplification, abstract band) — regression for the multi-slot widget-config mismatch (Phase 6 review Must-fix)', async () => {
-    // Aggregate 0.9 selects fraction-simplification's abstract band (>= 0.6 in
+    // Aggregate 0.9 selects fraction-simplification's abstract band (>= 0.7 in
     // GRAPH_FIXTURE), which is a 'multi-slot' inputMode, AND crosses
     // DEFAULT_MASTERY_CONFIG.abstractFade (0.7) so finalOnly must be true too.
     await seedAggregate('fraction-simplification', 0.9);

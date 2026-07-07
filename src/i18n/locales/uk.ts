@@ -364,33 +364,60 @@ const uk: CatalogResource = {
     'Частини — {{knownA}} і {{knownB}}. Яке ціле?',
 
   // -------------------------------------------------------------------------
+  // addition_20.* — Addition-within-20 generator prompts (vars: a, b — the
+  //   two addends; the sum is the answer and is never carried in vars).
+  // -------------------------------------------------------------------------
+
+  'addition_20.problem': '{{a}} + {{b}} = ?',
+  'addition_20.step.sum': 'Скільки буде {{a}} + {{b}}?',
+
+  // -------------------------------------------------------------------------
+  // missing_addend.* — Unknown-as-missing-addend generator prompts
+  //   (vars: a, c — the known addend and the total; the missing addend is
+  //   the answer and is never carried in vars).
+  // -------------------------------------------------------------------------
+
+  'missing_addend.problem': 'Знайди пропущений доданок: {{a}} + ▢ = {{c}}',
+  'missing_addend.step.addend':
+    'Яке число потрібно додати до {{a}}, щоб отримати {{c}}?',
+
+  // -------------------------------------------------------------------------
   // multiplication.* — Multiplication generator prompts (vars: a, b).
   // -------------------------------------------------------------------------
 
   'multiplication.problem': 'Скільки буде {{a}} × {{b}}?',
   'multiplication.step.product': 'Обчисли добуток: {{a}} × {{b}}.',
+  'multiplication.problem.missing_factor':
+    'Знайди пропущений множник: {{a}} × ▢ = {{c}}',
+  'multiplication.step.missing_factor':
+    'На яке число потрібно помножити {{a}}, щоб отримати {{c}}?',
 
   // -------------------------------------------------------------------------
   // fraction_simpl.* — Fraction-simplification prompts (vars: num, den).
   // -------------------------------------------------------------------------
 
   'fraction_simpl.problem': 'Скороти дріб {{num}}/{{den}} до найпростішого вигляду.',
+  'fraction_simpl.step.gcd': 'На який найбільший спільний дільник можна скоротити {{num}}/{{den}}?',
   'fraction_simpl.step.numerator': 'Який чисельник скороченого дробу {{num}}/{{den}}?',
   'fraction_simpl.step.denominator': 'Який знаменник скороченого дробу {{num}}/{{den}}?',
 
   // -------------------------------------------------------------------------
   // fruit_eq.* — Fruit-equations prompts. Problem vars: total (+ slot markers);
-  //   step keys encode the fruit slot (apple | banana), vars: slot.
+  //   step keys encode the fruit slot (apple | banana | cherry), vars: slot.
   // -------------------------------------------------------------------------
 
   'fruit_eq.problem.unknowns_1': 'Рівняння: {{coeff}} × 🍎 = {{total}}.',
   'fruit_eq.problem.unknowns_2':
     'Рівняння:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}\nЗнайди 🍎, потім 🍌.',
+  'fruit_eq.problem.unknowns_3':
+    'Рівняння:\n{{coeffA}} × 🍎 = {{total1}}\n🍎 + 🍌 = {{total2}}\n🍌 + 🍒 = {{total3}}\nЗнайди 🍎, потім 🍌, потім 🍒.',
   'fruit_eq.step.apple': 'Скільки становить 🍎?',
   'fruit_eq.step.banana': 'Скільки становить 🍌?',
+  'fruit_eq.step.cherry': 'Скільки становить 🍒?',
   // Short recap labels — shown as "🍎 = 2" while a later fruit is being solved.
   'fruit_eq.recap.apple': '🍎',
   'fruit_eq.recap.banana': '🍌',
+  'fruit_eq.recap.cherry': '🍒',
 
   // -------------------------------------------------------------------------
   // widget.* — Answer-widget chrome labels (ordinary). Rendered via useT()

@@ -2,7 +2,7 @@
  * load-graph.test.ts — Tests for `loadGraph()` and the GRAPH_FIXTURE asset.
  *
  * Verifies:
- *   - `loadGraph()` returns a valid `GraphDefinition` with `graphVersion '0.2.0'`.
+ *   - `loadGraph()` returns a valid `GraphDefinition` with `graphVersion '0.2.1'`.
  *   - The returned graph has `fixture: true`.
  *   - All six expected nodes are present with correct IDs and prerequisite edges.
  *   - The fixture flag triggers a `console.warn` (fixture guard).
@@ -29,9 +29,9 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('loadGraph() — basic shape', () => {
-  it('returns a GraphDefinition with graphVersion "0.2.0"', () => {
+  it('returns a GraphDefinition with graphVersion "0.2.1"', () => {
     const graph = loadGraph();
-    expect(graph.graphVersion).toBe('0.2.0');
+    expect(graph.graphVersion).toBe('0.2.1');
   });
 
   it('returns a graph with fixture: true', () => {
@@ -109,10 +109,10 @@ describe('loadGraph() — node IDs', () => {
 // ---------------------------------------------------------------------------
 
 describe('loadGraph() — fruit-equations band ladder', () => {
-  it('fruit-equations has 3 difficulty bands', () => {
+  it('fruit-equations has 4 difficulty bands (incl. the high-mastery cherry-tier band)', () => {
     const graph = loadGraph();
     const node = graph.nodes.find((n) => n.id === 'fruit-equations');
-    expect(node!.difficultyHooks.bands).toHaveLength(3);
+    expect(node!.difficultyHooks.bands).toHaveLength(4);
   });
 
   it('fruit-equations bands are ascending by minCoordinate', () => {
@@ -156,7 +156,7 @@ describe('loadGraph() — fixture guard', () => {
 
   it('warn message includes the graphVersion', () => {
     loadGraph();
-    expect(warnSpy.mock.calls[0][0]).toContain('0.2.0');
+    expect(warnSpy.mock.calls[0][0]).toContain('0.2.1');
   });
 });
 

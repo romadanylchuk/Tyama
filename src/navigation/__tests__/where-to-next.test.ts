@@ -11,8 +11,29 @@
 
 import { whereToNext } from '../where-to-next';
 import { GRAPH_FIXTURE } from '@/core/graph/graph-fixture';
+import type { GraphDefinition } from '@/core/types';
 import type { MasteryLookup } from '@/core/routing/routing-types';
 import type { ReviewItem } from '@/core/spaced-repetition';
+
+/**
+ * GRAPH_FIXTURE plus one synthetic generator-less node — used ONLY by the
+ * coming-soon curated-fallback test below. Every real GRAPH_FIXTURE node is
+ * generator-backed as of graphVersion 0.2.1 (addition-within-20 and
+ * unknown-as-missing-addend gained generators), so the fixture no longer has
+ * a naturally-occurring 'coming-soon' node to exercise that skip-path with.
+ */
+const GRAPH_WITH_GHOST: GraphDefinition = {
+  ...GRAPH_FIXTURE,
+  nodes: [
+    ...GRAPH_FIXTURE.nodes,
+    {
+      id: 'ghost-foundation',
+      prerequisites: [],
+      representationLevels: ['concrete'],
+      difficultyHooks: { bands: [{ minCoordinate: 0, representationLevel: 'concrete', params: {} }] },
+    },
+  ],
+};
 
 /** Builds a MasteryLookup from a plain aggregate map; absent nodes are untouched. */
 function lookup(aggregates: Record<string, number>): MasteryLookup {
@@ -91,9 +112,10 @@ describe('whereToNext', () => {
     const result = whereToNext({
       diagnosticDebt: null,
       dueReviews: [],
-      // addition-within-20 has no registered generator in the fixture registry.
-      curatedPath: ['addition-within-20', 'fruit-equations'],
-      graph: GRAPH_FIXTURE,
+      // 'ghost-foundation' has no registered generator (synthetic node, see
+      // GRAPH_WITH_GHOST above) — every real fixture node is generator-backed.
+      curatedPath: ['ghost-foundation', 'fruit-equations'],
+      graph: GRAPH_WITH_GHOST,
       masteryLookup: lookup({}),
     });
     expect(result).toEqual({ nodeId: 'fruit-equations', source: 'curated' });

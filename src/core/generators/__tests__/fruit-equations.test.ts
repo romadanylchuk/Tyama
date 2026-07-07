@@ -13,6 +13,8 @@
  *   - Multi-unknown (unknowns=2) produces 2 steps.
  *   - Single-unknown (unknowns=1) produces 1 step.
  *   - Negatives band: expected values are canonical (sign is canonical).
+ *   - Cherry-tier (unknowns=3): triangular 3-equation chain, 3 ordered steps with
+ *     recaps, each equation balances, byte-reproducible.
  */
 
 import { fruitEquations } from '../fruit-equations';
@@ -45,6 +47,13 @@ const HARD_DIFFICULTY: DifficultyParams = {
   params: { unknowns: 2, range: 20, negatives: true },
 };
 
+/** Cherry-tier band (3 unknowns, range 20, abstract, negatives allowed — high mastery). */
+const CHERRY_DIFFICULTY: DifficultyParams = {
+  representationLevel: 'abstract',
+  elicitFromMastery: 1,
+  params: { unknowns: 3, range: 20, negatives: true },
+};
+
 const FIXED_SEED = 42;
 
 // ---------------------------------------------------------------------------
@@ -67,6 +76,12 @@ describe('fruitEquations — byte-reproducibility', () => {
   it('same seed + same difficulty → deep-equal GeneratedTask (hard)', () => {
     const task1 = fruitEquations.generate(HARD_DIFFICULTY, createSeededRng(FIXED_SEED));
     const task2 = fruitEquations.generate(HARD_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task1).toEqual(task2);
+  });
+
+  it('same seed + same difficulty → deep-equal GeneratedTask (cherry-tier, 3 unknowns)', () => {
+    const task1 = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    const task2 = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(FIXED_SEED));
     expect(task1).toEqual(task2);
   });
 
@@ -293,6 +308,11 @@ describe('fruitEquations — step count per unknowns', () => {
     const task = fruitEquations.generate(MEDIUM_DIFFICULTY, createSeededRng(FIXED_SEED));
     expect(task.steps).toHaveLength(2);
   });
+
+  it('unknowns=3 produces exactly 3 steps', () => {
+    const task = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps).toHaveLength(3);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -314,12 +334,14 @@ describe('fruitEquations — representation', () => {
 // ---------------------------------------------------------------------------
 
 interface Concrete {
-  unknowns: 1 | 2;
+  unknowns: 1 | 2 | 3;
   apple: number;
   coeffA: number;
   total1: number;
   banana?: number;
   total2?: number;
+  cherry?: number;
+  total3?: number;
 }
 
 describe('fruitEquations.instantiate()', () => {
@@ -395,5 +417,137 @@ describe('fruitEquations — puzzle is uniquely solvable', () => {
       expect(total1).toBe(coeffA * apple); // equation 1 → apple
       expect(total2).toBe(apple + banana); // equation 2 → banana
     }
+  });
+
+  it('three unknowns: all three equations pin the answers exactly (triangular chain)', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const task = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(seed));
+      const coeffA = task.problem.prompt.vars!.coeffA as number;
+      const total1 = task.problem.prompt.vars!.total1 as number;
+      const total2 = task.problem.prompt.vars!.total2 as number;
+      const total3 = task.problem.prompt.vars!.total3 as number;
+      const apple = parseInt(task.steps[0].expected, 10);
+      const banana = parseInt(task.steps[1].expected, 10);
+      const cherry = parseInt(task.steps[2].expected, 10);
+      expect(total1).toBe(coeffA * apple); // equation 1 → apple
+      expect(total2).toBe(apple + banana); // equation 2 → banana (uses apple)
+      expect(total3).toBe(banana + cherry); // equation 3 → cherry (uses banana)
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cherry tier (unknowns=3) — the enhancement under test in this slice.
+// ---------------------------------------------------------------------------
+
+describe('fruitEquations — cherry tier (unknowns=3, triangular chain)', () => {
+  it('produces exactly 3 ordered steps: apple, banana, cherry', () => {
+    const task = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps).toHaveLength(3);
+    expect(task.steps[0].prompt.key).toBe('fruit_eq.step.apple');
+    expect(task.steps[1].prompt.key).toBe('fruit_eq.step.banana');
+    expect(task.steps[2].prompt.key).toBe('fruit_eq.step.cherry');
+  });
+
+  it('every step carries a recap LocalizedRef (apple, banana, cherry)', () => {
+    const task = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].recap).toEqual({ key: 'fruit_eq.recap.apple' });
+    expect(task.steps[1].recap).toEqual({ key: 'fruit_eq.recap.banana' });
+    expect(task.steps[2].recap).toEqual({ key: 'fruit_eq.recap.cherry' });
+  });
+
+  it('problem.prompt uses key "fruit_eq.problem.unknowns_3" with vars coeffA/total1/total2/total3', () => {
+    const task = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.problem.prompt.key).toBe('fruit_eq.problem.unknowns_3');
+    expect(typeof task.problem.prompt.vars!.coeffA).toBe('number');
+    expect(typeof task.problem.prompt.vars!.total1).toBe('number');
+    expect(typeof task.problem.prompt.vars!.total2).toBe('number');
+    expect(typeof task.problem.prompt.vars!.total3).toBe('number');
+  });
+
+  it('solution equals canonicalize of the sum of all three step values', () => {
+    const task = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    const sumOfSteps = task.steps.reduce((sum, s) => sum + parseInt(s.expected, 10), 0);
+    expect(task.solution).toBe(canonicalize(sumOfSteps));
+  });
+
+  it('instantiate() produces a solvable 3-equation chain (coeffA × apple = total1; apple + banana = total2; banana + cherry = total3)', () => {
+    const band = {
+      minCoordinate: 0,
+      representationLevel: 'abstract' as const,
+      params: { unknowns: 3, range: 20, negatives: true },
+    };
+    const r = fruitEquations.instantiate(band, createSeededRng(FIXED_SEED)) as Concrete;
+    expect(r.unknowns).toBe(3);
+    expect(r.coeffA).toBeGreaterThanOrEqual(2);
+    expect(r.total1).toBe(r.coeffA * r.apple);
+    expect(r.total2).toBe(r.apple + (r.banana as number));
+    expect(r.total3).toBe((r.banana as number) + (r.cherry as number));
+  });
+
+  it('instantiate() is reproducible with the same seed (cherry tier)', () => {
+    const band = {
+      minCoordinate: 0,
+      representationLevel: 'abstract' as const,
+      params: { unknowns: 3, range: 20, negatives: true },
+    };
+    const r1 = fruitEquations.instantiate(band, createSeededRng(13)) as Concrete;
+    const r2 = fruitEquations.instantiate(band, createSeededRng(13)) as Concrete;
+    expect(r1).toEqual(r2);
+  });
+
+  it('every step.expected is canonical and carries SCALAR_DECIMAL_POLICY', () => {
+    const task = fruitEquations.generate(CHERRY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    for (const step of task.steps) {
+      const value = parseInt(step.expected, 10);
+      expect(isNaN(value)).toBe(false);
+      expect(step.expected).toBe(canonicalize(value));
+      expect(step.normalizationPolicy).toEqual(SCALAR_DECIMAL_POLICY);
+      expect(step.skillNode).toBe('fruit-equations');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: unknowns=1 and unknowns=2 bands stay byte-identical for a fixed
+// seed after the unknowns=3 (cherry-tier) enhancement — the draw order for
+// lower tiers (apple, coeffA, [banana]) is unchanged.
+// ---------------------------------------------------------------------------
+
+describe('fruitEquations — existing bands unaffected by the cherry-tier addition', () => {
+  it('unknowns=1 (easy band) is byte-identical for a fixed seed', () => {
+    const task = fruitEquations.generate(EASY_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task).toEqual({
+      problem: {
+        prompt: { key: 'fruit_eq.problem.unknowns_1', vars: { coeff: 2, total: 8 } },
+        representation: 'pictorial',
+      },
+      solution: '4',
+      steps: [
+        {
+          prompt: { key: 'fruit_eq.step.apple' },
+          recap: { key: 'fruit_eq.recap.apple' },
+          inputMode: 'tokens',
+          expected: '4',
+          skillNode: 'fruit-equations',
+          elicitFromMastery: 0,
+          normalizationPolicy: SCALAR_DECIMAL_POLICY,
+        },
+      ],
+      representation: 'pictorial',
+      skillNode: 'fruit-equations',
+    });
+  });
+
+  it('unknowns=2 (medium band) is byte-identical for a fixed seed', () => {
+    const task = fruitEquations.generate(MEDIUM_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps).toHaveLength(2);
+    expect(task.steps[0].prompt.key).toBe('fruit_eq.step.apple');
+    expect(task.steps[1].prompt.key).toBe('fruit_eq.step.banana');
+    expect(task.problem.prompt.key).toBe('fruit_eq.problem.unknowns_2');
+    // Pin the exact drawn values for this fixed seed (regression guard).
+    expect(task.steps[0].expected).toBe('7');
+    expect(task.steps[1].expected).toBe('9');
+    expect(task.problem.prompt.vars).toEqual({ coeffA: 2, total1: 14, total2: 16 });
   });
 });

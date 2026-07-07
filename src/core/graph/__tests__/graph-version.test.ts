@@ -8,9 +8,14 @@
  *     → `[]` (no-op entry for the 0.1.0→0.2.0 transition), runs it, persists `'0.2.0'`.
  *   - No-change run: `appliedGraphVersion` already `'0.2.0'` → no ops, no re-persist.
  *   - Version is persisted via the settings seam, NOT via `PRAGMA user_version`.
- *   - `GRAPH_MIGRATIONS['0.1.0']` is `[]` (no-op; nodes added, none split/merged/renamed).
+ *   - `GRAPH_MIGRATIONS['0.1.0']` and `GRAPH_MIGRATIONS['0.2.0']` are both `[]`
+ *     (no-op; nodes added or gained generators/bands, none split/merged/renamed).
  *   - Anti-shame: mastery_level never decreases (structural — `applyGraphMigrations`
  *     guarantees this; we verify the empty-ops fast path is actually taken).
+ *
+ * NOTE: this suite exercises `reconcileGraphVersion()` generically via its own
+ * synthetic `makeTestGraph()` literals (version `'0.2.0'` by default) — it does
+ * NOT depend on `GRAPH_FIXTURE`'s actual `graphVersion` (currently `'0.2.1'`).
  *
  * ISOLATION STRATEGY:
  *   Tests use `useTestDb()` for a fresh migrated in-memory DB per test.
@@ -70,14 +75,19 @@ function makeTestGraph(version: string = '0.2.0'): GraphDefinition {
 // ---------------------------------------------------------------------------
 
 describe('GRAPH_MIGRATIONS', () => {
-  it('has exactly one entry keyed by "0.1.0"', () => {
+  it('has exactly two entries keyed by "0.1.0" and "0.2.0"', () => {
     expect(typeof GRAPH_MIGRATIONS).toBe('object');
-    expect(Object.keys(GRAPH_MIGRATIONS)).toHaveLength(1);
+    expect(Object.keys(GRAPH_MIGRATIONS)).toHaveLength(2);
     expect(Object.keys(GRAPH_MIGRATIONS)).toContain('0.1.0');
+    expect(Object.keys(GRAPH_MIGRATIONS)).toContain('0.2.0');
   });
 
   it('GRAPH_MIGRATIONS["0.1.0"] is an empty array (no-op: nodes added, none renamed)', () => {
     expect(GRAPH_MIGRATIONS['0.1.0']).toEqual([]);
+  });
+
+  it('GRAPH_MIGRATIONS["0.2.0"] is an empty array (no-op: generators/bands added, none renamed)', () => {
+    expect(GRAPH_MIGRATIONS['0.2.0']).toEqual([]);
   });
 
   it('GRAPH_MIGRATIONS[""] is undefined (no ops for first-run from empty)', () => {

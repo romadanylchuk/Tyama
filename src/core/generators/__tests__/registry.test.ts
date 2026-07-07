@@ -5,12 +5,15 @@
  *   - getGenerator returns the generator for a known node, undefined for unknown.
  *   - hasGenerator returns true/false correctly.
  *   - resolveAvailability returns 'available'/'coming-soon' for the fixture graph.
- *   - resolveAvailability returns correct statuses for all 6 fixture nodes.
+ *   - resolveAvailability returns correct statuses for all 6 fixture nodes
+ *     (all 'available' as of graphVersion 0.2.1 — every fixture node is
+ *     generator-backed).
  *   - validateRegistry passes for the fixture graph.
  *   - assertEveryGeneratorHasNode throws for a dangling generator.
  *   - Anti-shame vocabulary: status values are only 'available' | 'coming-soon'.
  *   - GENERATORS is frozen (no runtime mutation).
- *   - GENERATORS has 4 entries: fruit-equations + number-bonds + multiplication + fraction-simplification.
+ *   - GENERATORS has 6 entries: fruit-equations + number-bonds + multiplication +
+ *     fraction-simplification + addition-within-20 + unknown-as-missing-addend.
  */
 
 import { loadGraph } from '../../graph/load-graph';
@@ -71,6 +74,22 @@ describe('getGenerator()', () => {
     expect(typeof gen!.instantiate).toBe('function');
   });
 
+  it('returns the generator for addition-within-20', () => {
+    const gen = getGenerator('addition-within-20');
+    expect(gen).toBeDefined();
+    expect(gen!.skillNode).toBe('addition-within-20');
+    expect(typeof gen!.generate).toBe('function');
+    expect(typeof gen!.instantiate).toBe('function');
+  });
+
+  it('returns the generator for unknown-as-missing-addend', () => {
+    const gen = getGenerator('unknown-as-missing-addend');
+    expect(gen).toBeDefined();
+    expect(gen!.skillNode).toBe('unknown-as-missing-addend');
+    expect(typeof gen!.generate).toBe('function');
+    expect(typeof gen!.instantiate).toBe('function');
+  });
+
   it('returns undefined for an unknown node ID', () => {
     const gen = getGenerator('no-such-node' as string);
     expect(gen).toBeUndefined();
@@ -107,12 +126,12 @@ describe('hasGenerator()', () => {
     expect(hasGenerator('fraction-simplification')).toBe(true);
   });
 
-  it('returns false for addition-within-20 (no generator — coming-soon)', () => {
-    expect(hasGenerator('addition-within-20')).toBe(false);
+  it('returns true for addition-within-20', () => {
+    expect(hasGenerator('addition-within-20')).toBe(true);
   });
 
-  it('returns false for unknown-as-missing-addend (no generator — coming-soon)', () => {
-    expect(hasGenerator('unknown-as-missing-addend')).toBe(false);
+  it('returns true for unknown-as-missing-addend', () => {
+    expect(hasGenerator('unknown-as-missing-addend')).toBe(true);
   });
 
   it('returns false for an arbitrary unknown node', () => {
@@ -163,20 +182,20 @@ describe('resolveAvailability()', () => {
     expect(entry!.status).toBe('available');
   });
 
-  it('marks addition-within-20 as coming-soon', () => {
+  it('marks addition-within-20 as available', () => {
     const graph = loadGraph();
     const availability = resolveAvailability(graph);
     const entry = availability.find((a) => a.nodeId === 'addition-within-20');
     expect(entry).toBeDefined();
-    expect(entry!.status).toBe('coming-soon');
+    expect(entry!.status).toBe('available');
   });
 
-  it('marks unknown-as-missing-addend as coming-soon', () => {
+  it('marks unknown-as-missing-addend as available', () => {
     const graph = loadGraph();
     const availability = resolveAvailability(graph);
     const entry = availability.find((a) => a.nodeId === 'unknown-as-missing-addend');
     expect(entry).toBeDefined();
-    expect(entry!.status).toBe('coming-soon');
+    expect(entry!.status).toBe('available');
   });
 
   it('never returns a shaming status word', () => {
@@ -319,12 +338,14 @@ describe('GENERATORS map', () => {
     expect(Object.isFrozen(GENERATORS)).toBe(true);
   });
 
-  it('contains exactly four entries (stage-05)', () => {
-    expect(Object.keys(GENERATORS)).toHaveLength(4);
+  it('contains exactly six entries (stage-05 + foundation generators)', () => {
+    expect(Object.keys(GENERATORS)).toHaveLength(6);
     expect(Object.keys(GENERATORS)).toContain('fruit-equations');
     expect(Object.keys(GENERATORS)).toContain('number-bonds');
     expect(Object.keys(GENERATORS)).toContain('multiplication');
     expect(Object.keys(GENERATORS)).toContain('fraction-simplification');
+    expect(Object.keys(GENERATORS)).toContain('addition-within-20');
+    expect(Object.keys(GENERATORS)).toContain('unknown-as-missing-addend');
   });
 
   it('fruit-equations generator has the correct skillNode', () => {
@@ -341,5 +362,13 @@ describe('GENERATORS map', () => {
 
   it('fraction-simplification generator has the correct skillNode', () => {
     expect(GENERATORS['fraction-simplification'].skillNode).toBe('fraction-simplification');
+  });
+
+  it('addition-within-20 generator has the correct skillNode', () => {
+    expect(GENERATORS['addition-within-20'].skillNode).toBe('addition-within-20');
+  });
+
+  it('unknown-as-missing-addend generator has the correct skillNode', () => {
+    expect(GENERATORS['unknown-as-missing-addend'].skillNode).toBe('unknown-as-missing-addend');
   });
 });

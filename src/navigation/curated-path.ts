@@ -13,16 +13,19 @@
  *   change required. Never hardcode a curated sequence into a call site;
  *   always import `CURATED_ENTRY_PATH` (or an injected override) from here.
  *
- * WHY ONLY GENERATOR-BACKED NODES ARE LISTED:
- *   `addition-within-20` and `unknown-as-missing-addend` (the fixture's two
- *   generator-less root nodes) are `'coming-soon'` per
- *   `resolveAvailability()` — no generator is registered for them yet. A
- *   curated path entry that resolves to `'coming-soon'` is a shipped-time
- *   defect (the whole point of `validateCuratedPath` is to catch this before
- *   ship), so the default sequence lists only the four generator-backed
- *   nodes, ordered so that any prerequisite relationship BETWEEN two
- *   in-path nodes is respected (`multiplication` after `number-bonds`;
- *   `fraction-simplification` after `fruit-equations`).
+ * WHY THE DEFAULT SEQUENCE OMITS THE TWO FOUNDATION NODES:
+ *   `addition-within-20` and `unknown-as-missing-addend` are now
+ *   generator-backed (graphVersion 0.2.1) and would resolve to `'available'`
+ *   per `resolveAvailability()` — they are no longer excluded for
+ *   availability reasons. They stay out of the shipped `CURATED_ENTRY_PATH`
+ *   for now as a `pedagogy-pass` sequencing decision (the curated path is
+ *   authored config-as-data, recalibrated later), not a hard constraint —
+ *   `validateCuratedPath` would happily accept them if added. A curated path
+ *   entry that resolves to `'coming-soon'` IS still a shipped-time defect
+ *   (the whole point of `validateCuratedPath` is to catch that before ship);
+ *   the current sequence is ordered so that any prerequisite relationship
+ *   BETWEEN two in-path nodes is respected (`multiplication` after
+ *   `number-bonds`; `fraction-simplification` after `fruit-equations`).
  */
 
 import type { NodeId, GraphDefinition } from '@/core/types';
@@ -36,7 +39,7 @@ import { resolveAvailability } from '@/core/generators/registry';
  * The shipped default curated entry path (config-as-data).
  *
  * Ordered so every in-path prerequisite relationship is respected:
- *   - `number-bonds`             — prerequisite: `addition-within-20` (not in path; root, coming-soon).
+ *   - `number-bonds`             — prerequisite: `addition-within-20` (not in path; generator-backed root, omitted by pedagogy-pass sequencing choice).
  *   - `fruit-equations`          — prerequisites: `addition-within-20`, `unknown-as-missing-addend` (neither in path).
  *   - `multiplication`           — prerequisite: `number-bonds` (appears earlier above).
  *   - `fraction-simplification`  — prerequisite: `fruit-equations` (appears earlier above).

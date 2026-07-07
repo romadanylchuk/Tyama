@@ -47,6 +47,18 @@ const ABSTRACT_DIFFICULTY: DifficultyParams = {
   params: { wholeMax: 20, missingSlot: 'partA' },
 };
 
+/**
+ * Band 3 (mastery, minCoordinate 0.85 in the graph fixture): abstract,
+ * wholeMax 50, missingSlot 'random' — the slot itself is drawn per-instance
+ * from `rng` rather than being a fixed literal (larger wholes + per-instance
+ * slot variety enhancement).
+ */
+const RANDOM_SLOT_DIFFICULTY: DifficultyParams = {
+  representationLevel: 'abstract',
+  elicitFromMastery: 1,
+  params: { wholeMax: 50, missingSlot: 'random' },
+};
+
 const FIXED_SEED = 42;
 
 // ---------------------------------------------------------------------------
@@ -462,5 +474,224 @@ describe('numberBonds — narrowBandParams guard', () => {
     expect(() => numberBonds.generate(badDifficulty, createSeededRng(1))).toThrow(
       '[number-bonds] Band params have unexpected shape'
     );
+  });
+
+  it('does NOT throw for missingSlot "random" (valid enhancement value)', () => {
+    expect(() => numberBonds.generate(RANDOM_SLOT_DIFFICULTY, createSeededRng(1))).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// missingSlot 'random' — per-instance slot draw (difficulty enhancement)
+// ---------------------------------------------------------------------------
+
+describe('numberBonds — missingSlot "random" (per-instance slot draw)', () => {
+  it('same seed + random-slot difficulty → deep-equal GeneratedTask (determinism)', () => {
+    const task1 = numberBonds.generate(RANDOM_SLOT_DIFFICULTY, createSeededRng(FIXED_SEED));
+    const task2 = numberBonds.generate(RANDOM_SLOT_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task1).toEqual(task2);
+  });
+
+  it('resolved missingSlot is never the literal string "random" on the task', () => {
+    for (let seed = 0; seed < 40; seed++) {
+      const task = numberBonds.generate(RANDOM_SLOT_DIFFICULTY, createSeededRng(seed));
+      const problemVars = task.problem.prompt.vars ?? {};
+      expect(problemVars.missingSlot).not.toBe('random');
+      expect(['partA', 'partB', 'whole']).toContain(problemVars.missingSlot);
+      // The i18n keys reuse the existing per-slot segments — 'random' never
+      // leaks into a prompt key.
+      expect(task.problem.prompt.key).not.toContain('random');
+      expect(task.steps[0].prompt.key).not.toContain('random');
+    }
+  });
+
+  it('all three slots (partA, partB, whole) are reachable across seeds', () => {
+    const seenSlots = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const task = numberBonds.generate(RANDOM_SLOT_DIFFICULTY, createSeededRng(seed));
+      const problemVars = task.problem.prompt.vars ?? {};
+      seenSlots.add(problemVars.missingSlot as string);
+    }
+    expect(seenSlots).toEqual(new Set(['partA', 'partB', 'whole']));
+  });
+
+  it('wholeMax 50 is respected across seeds (whole <= 50, whole === partA + partB)', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const concrete = numberBonds.instantiate(
+        { minCoordinate: 0.85, representationLevel: 'abstract', params: { wholeMax: 50, missingSlot: 'random' } } as Band,
+        createSeededRng(seed)
+      ) as { partA: number; partB: number; whole: number; missingSlot: string };
+      expect(concrete.whole).toBe(concrete.partA + concrete.partB);
+      expect(concrete.whole).toBeLessThanOrEqual(50);
+      expect(concrete.partA).toBeGreaterThanOrEqual(0);
+      expect(concrete.partB).toBeGreaterThanOrEqual(1);
+      // instantiate() resolves 'random' to a concrete literal slot.
+      expect(['partA', 'partB', 'whole']).toContain(concrete.missingSlot);
+    }
+  });
+
+  it('step.expected matches whichever slot was resolved for that seed', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const task = numberBonds.generate(RANDOM_SLOT_DIFFICULTY, createSeededRng(seed));
+      const concrete = numberBonds.instantiate(
+        { minCoordinate: 0.85, representationLevel: 'abstract', params: { wholeMax: 50, missingSlot: 'random' } } as Band,
+        createSeededRng(seed)
+      ) as { partA: number; partB: number; whole: number; missingSlot: 'partA' | 'partB' | 'whole' };
+      const expectedAnswer =
+        concrete.missingSlot === 'partA'
+          ? concrete.partA
+          : concrete.missingSlot === 'partB'
+            ? concrete.partB
+            : concrete.whole;
+      expect(task.steps[0].expected).toBe(canonicalize(expectedAnswer));
+    }
+  });
+
+  it('inputMode is "number" (abstract representation) regardless of which slot is resolved', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const task = numberBonds.generate(RANDOM_SLOT_DIFFICULTY, createSeededRng(seed));
+      expect(task.representation).toBe('abstract');
+      expect(task.steps[0].inputMode).toBe('number');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: existing literal-slot bands stay byte-identical for a fixed seed
+//
+// Guards against the 'random'-slot enhancement accidentally shifting the rng
+// draw sequence (e.g. an extra draw) for bands that use a fixed literal
+// missingSlot. Inline snapshots pin the exact GeneratedTask shape produced
+// before this enhancement landed.
+// ---------------------------------------------------------------------------
+
+describe('numberBonds — regression: literal-slot bands unaffected by the random-slot enhancement', () => {
+  it('concrete band (wholeMax 10, missingSlot "whole") is unchanged for FIXED_SEED', () => {
+    const task = numberBonds.generate(CONCRETE_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task).toMatchInlineSnapshot(`
+{
+  "problem": {
+    "prompt": {
+      "key": "number_bonds.problem.whole",
+      "vars": {
+        "knownA": 6,
+        "knownB": 2,
+        "missingSlot": "whole",
+      },
+    },
+    "representation": "concrete",
+  },
+  "representation": "concrete",
+  "skillNode": "number-bonds",
+  "solution": "8",
+  "steps": [
+    {
+      "elicitFromMastery": 0,
+      "expected": "8",
+      "inputMode": "manipulative",
+      "normalizationPolicy": {
+        "decimalForm": "standard",
+        "lowestTerms": false,
+        "numberClass": "integer",
+        "ordering": "n/a",
+      },
+      "prompt": {
+        "key": "number_bonds.step.whole",
+        "vars": {
+          "knownA": 6,
+          "knownB": 2,
+        },
+      },
+      "skillNode": "number-bonds",
+    },
+  ],
+}
+`);
+  });
+
+  it('pictorial band (wholeMax 10, missingSlot "partB") is unchanged for FIXED_SEED', () => {
+    const task = numberBonds.generate(PICTORIAL_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task).toMatchInlineSnapshot(`
+{
+  "problem": {
+    "prompt": {
+      "key": "number_bonds.problem.part_b",
+      "vars": {
+        "knownA": 6,
+        "knownB": 8,
+        "missingSlot": "partB",
+      },
+    },
+    "representation": "pictorial",
+  },
+  "representation": "pictorial",
+  "skillNode": "number-bonds",
+  "solution": "2",
+  "steps": [
+    {
+      "elicitFromMastery": 0.5,
+      "expected": "2",
+      "inputMode": "choice",
+      "normalizationPolicy": {
+        "decimalForm": "standard",
+        "lowestTerms": false,
+        "numberClass": "integer",
+        "ordering": "n/a",
+      },
+      "prompt": {
+        "key": "number_bonds.step.part_b",
+        "vars": {
+          "knownA": 6,
+          "knownB": 8,
+        },
+      },
+      "skillNode": "number-bonds",
+    },
+  ],
+}
+`);
+  });
+
+  it('abstract band (wholeMax 20, missingSlot "partA") is unchanged for FIXED_SEED', () => {
+    const task = numberBonds.generate(ABSTRACT_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task).toMatchInlineSnapshot(`
+{
+  "problem": {
+    "prompt": {
+      "key": "number_bonds.problem.part_a",
+      "vars": {
+        "knownA": 4,
+        "knownB": 16,
+        "missingSlot": "partA",
+      },
+    },
+    "representation": "abstract",
+  },
+  "representation": "abstract",
+  "skillNode": "number-bonds",
+  "solution": "12",
+  "steps": [
+    {
+      "elicitFromMastery": 1,
+      "expected": "12",
+      "inputMode": "number",
+      "normalizationPolicy": {
+        "decimalForm": "standard",
+        "lowestTerms": false,
+        "numberClass": "integer",
+        "ordering": "n/a",
+      },
+      "prompt": {
+        "key": "number_bonds.step.part_a",
+        "vars": {
+          "knownA": 4,
+          "knownB": 16,
+        },
+      },
+      "skillNode": "number-bonds",
+    },
+  ],
+}
+`);
   });
 });

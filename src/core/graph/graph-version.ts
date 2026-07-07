@@ -23,10 +23,10 @@
  *   Schema migrations are ALWAYS applied before graph-content migrations.
  *
  * FIRST-RUN BEHAVIOUR:
- *   On a fresh install, `appliedGraphVersion === ''` and `graph.graphVersion === '0.2.0'`.
+ *   On a fresh install, `appliedGraphVersion === ''` and `graph.graphVersion === '0.2.1'`.
  *   `reconcileGraphVersion` looks up `GRAPH_MIGRATIONS['']` → `undefined` → `[]` (no-op).
  *   `applyGraphMigrations([])` is the documented no-op (fast path, no DB access).
- *   Then `appliedGraphVersion` is persisted as `'0.2.0'`.
+ *   Then `appliedGraphVersion` is persisted as `'0.2.1'`.
  *
  * UPGRADE FROM 0.1.0 → 0.2.0:
  *   On an install that previously ran `graphVersion '0.1.0'`, `appliedGraphVersion`
@@ -34,6 +34,11 @@
  *   (the no-op entry added for this transition — nodes are ADDED, not split/merged/renamed,
  *   so no node-identity migration ops are needed). `applyGraphMigrations([])` is the fast
  *   path. Then `appliedGraphVersion` is persisted as `'0.2.0'`.
+ *
+ * UPGRADE FROM 0.2.0 → 0.2.1:
+ *   `addition-within-20` and `unknown-as-missing-addend` gain real band ladders
+ *   and registered generators — no node is added, split, merged, or renamed, so
+ *   `GRAPH_MIGRATIONS['0.2.0']` is also `[]` (no-op). Same fast path as above.
  *
  * NO-CHANGE RUN:
  *   If `appliedGraphVersion === graph.graphVersion`, reconciliation is skipped entirely
@@ -76,9 +81,13 @@ import { settings } from '@/repositories/settings-repository';
  *                  (number-bonds, multiplication, fraction-simplification).
  *                  No existing node is split, merged, or renamed, so no
  *                  node-identity migration ops are needed.
+ *   '0.2.0': [] — no-op. The 0.2.0 → 0.2.1 bump gives `addition-within-20`
+ *                  and `unknown-as-missing-addend` real band ladders and
+ *                  registered generators. No node is added, split, merged, or
+ *                  renamed, so no node-identity migration ops are needed.
  *
  * Example of a future non-trivial entry (when a node rename ships):
- *   '0.2.0': [{ op: 'rename', from: 'counting' as NodeId, to: 'number-sense' as NodeId }]
+ *   '0.2.1': [{ op: 'rename', from: 'counting' as NodeId, to: 'number-sense' as NodeId }]
  *
  * This constant is exported so consumers (tests, CI checks) can assert the map
  * shape without importing private module internals.
@@ -86,6 +95,9 @@ import { settings } from '@/repositories/settings-repository';
 export const GRAPH_MIGRATIONS: Record<string, GraphMigrationOp[]> = {
   // No-op: 0.1.0 → 0.2.0 adds nodes only; no node-identity migration needed.
   '0.1.0': [],
+  // No-op: 0.2.0 → 0.2.1 adds generators + band ladders only; no node-identity
+  // migration needed.
+  '0.2.0': [],
 };
 
 // ---------------------------------------------------------------------------

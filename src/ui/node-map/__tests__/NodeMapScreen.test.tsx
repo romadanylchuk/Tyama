@@ -32,7 +32,7 @@ describe('NodeMapScreen', () => {
     );
 
     await waitFor(() => expect(getByTestId('node-map-screen')).toBeTruthy());
-    // A 'coming-soon' fixture node (no generator) renders inert, no padlock/locked wording.
+    // Every fixture node tile (available or coming-soon) renders inert, no padlock/locked wording.
     await waitFor(() => expect(getByTestId('node-map-tile-addition-within-20')).toBeTruthy());
     expect(queryByText(/locked/i)).toBeNull();
     expect(queryByText('🔒')).toBeNull();

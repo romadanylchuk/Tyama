@@ -30,20 +30,32 @@ const REQUIRED_KEYS: readonly string[] = [
   'number_bonds.step.part_a',
   'number_bonds.step.part_b',
   'number_bonds.step.whole',
+  // addition-within-20
+  'addition_20.problem',
+  'addition_20.step.sum',
+  // unknown-as-missing-addend
+  'missing_addend.problem',
+  'missing_addend.step.addend',
   // multiplication
   'multiplication.problem',
   'multiplication.step.product',
+  'multiplication.problem.missing_factor',
+  'multiplication.step.missing_factor',
   // fraction-simplification
   'fraction_simpl.problem',
+  'fraction_simpl.step.gcd',
   'fraction_simpl.step.numerator',
   'fraction_simpl.step.denominator',
-  // fruit-equations — unknowns ∈ {1, 2}, slot ∈ {apple, banana}
+  // fruit-equations — unknowns ∈ {1, 2, 3}, slot ∈ {apple, banana, cherry}
   'fruit_eq.problem.unknowns_1',
   'fruit_eq.problem.unknowns_2',
+  'fruit_eq.problem.unknowns_3',
   'fruit_eq.step.apple',
   'fruit_eq.step.banana',
+  'fruit_eq.step.cherry',
   'fruit_eq.recap.apple',
   'fruit_eq.recap.banana',
+  'fruit_eq.recap.cherry',
   // widget chrome (rendered via useT() in the widgets)
   'widget.confirm',
   'widget.backspace',

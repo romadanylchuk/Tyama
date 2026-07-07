@@ -47,6 +47,13 @@ const BAND2_DIFFICULTY: DifficultyParams = {
   params: { aMax: 12, bMax: 12 },
 };
 
+/** Band 3: abstract, form 'missing-factor', tableMax=12 (division readiness). */
+const MISSING_FACTOR_DIFFICULTY: DifficultyParams = {
+  representationLevel: 'abstract',
+  elicitFromMastery: 1,
+  params: { form: 'missing-factor', tableMax: 12 },
+};
+
 const FIXED_SEED = 42;
 
 // ---------------------------------------------------------------------------
@@ -434,5 +441,186 @@ describe('multiplication — narrowBandParams guard', () => {
     expect(() => multiplication.generate(badDifficulty, createSeededRng(1))).toThrow(
       '[multiplication] Band params have unexpected shape'
     );
+  });
+
+  it("throws for form 'missing-factor' with missing tableMax", () => {
+    const badDifficulty: DifficultyParams = {
+      representationLevel: 'abstract',
+      elicitFromMastery: 0,
+      params: { form: 'missing-factor' }, // missing tableMax
+    };
+    expect(() => multiplication.generate(badDifficulty, createSeededRng(1))).toThrow(
+      '[multiplication] Band params have unexpected shape'
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 'missing-factor' form — division readiness (a × ▢ = c)
+// ---------------------------------------------------------------------------
+
+describe("multiplication — 'missing-factor' form byte-reproducibility", () => {
+  it('same seed + missing-factor difficulty → deep-equal GeneratedTask', () => {
+    const task1 = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    const task2 = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task1).toEqual(task2);
+  });
+
+  it('different seeds → different tasks (probabilistically)', () => {
+    const task1 = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(1));
+    const task2 = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(9999));
+    expect(task1).not.toEqual(task2);
+  });
+});
+
+describe("multiplication — 'missing-factor' form balance invariant (a * expected === c)", () => {
+  it('a * expected === c (the shown product) for many seeds', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(seed));
+      const vars = task.steps[0].prompt.vars ?? {};
+      const a = vars.a as number;
+      const c = vars.c as number;
+      const expected = parseInt(task.steps[0].expected, 10);
+      expect(a * expected).toBe(c);
+    }
+  });
+
+  it('instantiate(): product === factorA * factorB (the missing factor)', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const concrete = multiplication.instantiate(
+        {
+          minCoordinate: 0,
+          representationLevel: 'abstract',
+          params: { form: 'missing-factor', tableMax: 12 },
+        } as Band,
+        createSeededRng(seed)
+      ) as { factorA: number; factorB: number; product: number };
+      expect(concrete.product).toBe(concrete.factorA * concrete.factorB);
+    }
+  });
+
+  it('factorA and the missing factorB are within [1, tableMax]', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const concrete = multiplication.instantiate(
+        {
+          minCoordinate: 0,
+          representationLevel: 'abstract',
+          params: { form: 'missing-factor', tableMax: 12 },
+        } as Band,
+        createSeededRng(seed)
+      ) as { factorA: number; factorB: number };
+      expect(concrete.factorA).toBeGreaterThanOrEqual(1);
+      expect(concrete.factorA).toBeLessThanOrEqual(12);
+      expect(concrete.factorB).toBeGreaterThanOrEqual(1);
+      expect(concrete.factorB).toBeLessThanOrEqual(12);
+    }
+  });
+});
+
+describe("multiplication — 'missing-factor' form vars never leak the answer", () => {
+  it('step.prompt.vars has "a" and "c" only — never the missing factor', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    const vars = task.steps[0].prompt.vars ?? {};
+    expect(Object.keys(vars).sort()).toEqual(['a', 'c']);
+    expect('b' in vars).toBe(false);
+    expect('factorB' in vars).toBe(false);
+    expect('x' in vars).toBe(false);
+  });
+
+  it('problem.prompt.vars has "a" and "c" only — never the missing factor', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    const vars = task.problem.prompt.vars ?? {};
+    expect(Object.keys(vars).sort()).toEqual(['a', 'c']);
+  });
+
+  it('vars.c (the product) never equals the answer for a range of seeds unless coincidental — the answer is not a named var', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(seed));
+      const vars = task.steps[0].prompt.vars ?? {};
+      expect(Object.prototype.hasOwnProperty.call(vars, 'b')).toBe(false);
+    }
+  });
+});
+
+describe("multiplication — 'missing-factor' form step shape", () => {
+  it('emits exactly 1 step', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps).toHaveLength(1);
+  });
+
+  it('inputMode is "number"', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].inputMode).toBe('number');
+  });
+
+  it('representation is "abstract"', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.representation).toBe('abstract');
+  });
+
+  it('normalizationPolicy is SCALAR_INTEGER_POLICY', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].normalizationPolicy).toEqual(SCALAR_INTEGER_POLICY);
+  });
+
+  it('solution === steps[0].expected', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.solution).toBe(task.steps[0].expected);
+  });
+
+  it('skillNode is "multiplication" on task and step', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.skillNode).toBe('multiplication');
+    expect(task.steps[0].skillNode).toBe('multiplication');
+  });
+
+  it('elicitFromMastery propagated from the difficulty envelope', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].elicitFromMastery).toBe(MISSING_FACTOR_DIFFICULTY.elicitFromMastery);
+  });
+
+  it('problem.prompt.key is "multiplication.problem.missing_factor"', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.problem.prompt.key).toBe('multiplication.problem.missing_factor');
+  });
+
+  it('step.prompt.key is "multiplication.step.missing_factor"', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].prompt.key).toBe('multiplication.step.missing_factor');
+  });
+
+  it('prompt key is a valid language-neutral LocalizedRef key', () => {
+    const task = multiplication.generate(MISSING_FACTOR_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.problem.prompt.key).toMatch(/^[a-z_][a-z0-9._]*$/);
+    expect(task.steps[0].prompt.key).toMatch(/^[a-z_][a-z0-9._]*$/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Old-band regression: 'product' form output is unchanged for a fixed seed
+// (pinned snapshot, captured BEFORE the 'missing-factor' form was added, to
+// guard against the new form discriminator silently perturbing the rng draw
+// order or values for the pre-existing bands).
+// ---------------------------------------------------------------------------
+
+describe("multiplication — old-band ('product' form) regression, fixed seed 42", () => {
+  it('band0 (aMax=5, bMax=5) is unchanged: a=4, b=3, product=12', () => {
+    const task = multiplication.generate(BAND0_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].prompt.vars).toEqual({ a: 4, b: 3 });
+    expect(task.solution).toBe('12');
+    expect(task.steps[0].expected).toBe('12');
+    expect(task.problem.prompt).toEqual({ key: 'multiplication.problem', vars: { a: 4, b: 3 } });
+  });
+
+  it('band1 (aMax=9, bMax=9) is unchanged: a=6, b=5, product=30', () => {
+    const task = multiplication.generate(BAND1_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].prompt.vars).toEqual({ a: 6, b: 5 });
+    expect(task.solution).toBe('30');
+  });
+
+  it('band2 (aMax=12, bMax=12) is unchanged: a=8, b=6, product=48', () => {
+    const task = multiplication.generate(BAND2_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].prompt.vars).toEqual({ a: 8, b: 6 });
+    expect(task.solution).toBe('48');
   });
 });

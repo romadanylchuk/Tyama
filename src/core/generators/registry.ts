@@ -46,6 +46,8 @@ import { fruitEquations } from './fruit-equations';
 import { numberBonds } from './number-bonds';
 import { multiplication } from './multiplication';
 import { fractionSimplification } from './fraction-simplification';
+import { additionWithin20 } from './addition-within-20';
+import { unknownAsMissingAddend } from './unknown-as-missing-addend';
 
 // ---------------------------------------------------------------------------
 // GENERATORS — the static frozen registry
@@ -67,6 +69,8 @@ export const GENERATORS: Readonly<Record<NodeId, Generator>> = Object.freeze({
   'number-bonds': numberBonds,
   'multiplication': multiplication,
   'fraction-simplification': fractionSimplification,
+  'addition-within-20': additionWithin20,
+  'unknown-as-missing-addend': unknownAsMissingAddend,
 });
 
 // ---------------------------------------------------------------------------

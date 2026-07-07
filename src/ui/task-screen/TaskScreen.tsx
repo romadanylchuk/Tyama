@@ -134,12 +134,12 @@ export function TaskScreen({
     if (!node) return;
     const generator = getGenerator(nodeId);
     if (!generator) {
-      // Coming-soon node (no generator yet — e.g. a staged-descent target like
-      // `addition-within-20`). The node-map never opens these, but diagnostic
-      // routing legitimately descends to a causal prerequisite that the MVP has
-      // not shipped a generator for. Clear any stale task so the calm
-      // coming-soon panel (see render below) shows instead of freezing on the
-      // previous node's task/feedback card.
+      // Coming-soon node (no generator yet — a future graph node the app has
+      // not shipped a generator for). The node-map never opens these, but
+      // diagnostic routing legitimately descends to a causal prerequisite
+      // that the MVP has not shipped a generator for. Clear any stale task so
+      // the calm coming-soon panel (see render below) shows instead of
+      // freezing on the previous node's task/feedback card.
       setTask(null);
       setViewEvent(null);
       setOutputs([]);

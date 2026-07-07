@@ -73,6 +73,18 @@ const ABSTRACT_DIFFICULTY: DifficultyParams = {
   params: { maxDenominator: 12, maxFactor: 4 },
 };
 
+/**
+ * Middle gcd-scaffold band: pictorial, multi-slot inputMode —
+ * { maxDenominator: 8, maxFactor: 3, includeGcdStep: true }. Decomposes the
+ * task into THREE ordered steps (gcd, numerator, denominator) instead of the
+ * default two.
+ */
+const GCD_SCAFFOLD_DIFFICULTY: DifficultyParams = {
+  representationLevel: 'pictorial',
+  elicitFromMastery: 0.55,
+  params: { maxDenominator: 8, maxFactor: 3, includeGcdStep: true },
+};
+
 const FIXED_SEED = 42;
 
 // ---------------------------------------------------------------------------
@@ -103,6 +115,12 @@ describe('fractionSimplification — byte-reproducibility', () => {
     const task2 = fractionSimplification.generate(ABSTRACT_DIFFICULTY, createSeededRng(9999));
     // Different seeds should produce different tasks with very high probability.
     expect(task1).not.toEqual(task2);
+  });
+
+  it('same seed + gcd-scaffold difficulty → deep-equal GeneratedTask', () => {
+    const task1 = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(FIXED_SEED));
+    const task2 = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task1).toEqual(task2);
   });
 });
 
@@ -269,6 +287,185 @@ describe('fractionSimplification — two steps with correct expected values', ()
   it('steps[1].expected is a valid integer string >= 2', () => {
     const task = fractionSimplification.generate(ABSTRACT_DIFFICULTY, createSeededRng(FIXED_SEED));
     expect(parseInt(task.steps[1].expected, 10)).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GCD-scaffold band: THREE ordered steps (gcd, numerator, denominator)
+// ---------------------------------------------------------------------------
+
+describe('fractionSimplification — gcd-scaffold band (includeGcdStep: true)', () => {
+  it('emits exactly 3 steps, ordered gcd, numerator, denominator', () => {
+    const task = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps).toHaveLength(3);
+    expect(task.steps[0].prompt.key).toContain('gcd');
+    expect(task.steps[1].prompt.key).toContain('numerator');
+    expect(task.steps[2].prompt.key).toContain('denominator');
+  });
+
+  it('gcd step correctness: gcd(n, d) === k where n = p*k, d = q*k, for all seeds', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const band: Band = {
+        minCoordinate: 0,
+        representationLevel: 'pictorial',
+        params: { maxDenominator: 8, maxFactor: 3, includeGcdStep: true },
+      };
+      const concrete = fractionSimplification.instantiate(band, createSeededRng(seed)) as {
+        p: number;
+        q: number;
+        k: number;
+        presentedNum: number;
+        presentedDen: number;
+      };
+      const task = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(seed));
+
+      const gcdAnswer = parseInt(task.steps[0].expected, 10);
+      expect(gcdAnswer).toBe(concrete.k);
+      // gcd(presentedNum, presentedDen) === k, by construction (p, q coprime).
+      expect(gcd(concrete.presentedNum, concrete.presentedDen)).toBe(concrete.k);
+      // n = p*k, d = q*k
+      expect(concrete.presentedNum).toBe(concrete.p * concrete.k);
+      expect(concrete.presentedDen).toBe(concrete.q * concrete.k);
+    }
+  });
+
+  it('steps[1].expected === canonicalize(p) and steps[2].expected === canonicalize(q)', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const band: Band = {
+        minCoordinate: 0,
+        representationLevel: 'pictorial',
+        params: { maxDenominator: 8, maxFactor: 3, includeGcdStep: true },
+      };
+      const concrete = fractionSimplification.instantiate(band, createSeededRng(seed)) as { p: number; q: number };
+      const task = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(seed));
+      expect(task.steps[1].expected).toBe(canonicalize(concrete.p));
+      expect(task.steps[2].expected).toBe(canonicalize(concrete.q));
+    }
+  });
+
+  it('all 3 steps carry SCALAR_INTEGER_POLICY (integer path, not fraction branch)', () => {
+    const task = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(FIXED_SEED));
+    for (const step of task.steps) {
+      expect(step.normalizationPolicy).toEqual(SCALAR_INTEGER_POLICY);
+    }
+  });
+
+  it('all 3 steps use "multi-slot" inputMode (pictorial representationLevel)', () => {
+    const task = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.representation).toBe('pictorial');
+    for (const step of task.steps) {
+      expect(step.inputMode).toBe('multi-slot');
+    }
+  });
+
+  it('task.solution === canonicalizeFraction(p, q), same D1 spine as the two-step bands', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const band: Band = {
+        minCoordinate: 0,
+        representationLevel: 'pictorial',
+        params: { maxDenominator: 8, maxFactor: 3, includeGcdStep: true },
+      };
+      const concrete = fractionSimplification.instantiate(band, createSeededRng(seed)) as { p: number; q: number };
+      const task = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(seed));
+      expect(task.solution).toBe(canonicalizeFraction(concrete.p, concrete.q));
+    }
+  });
+
+  it('gcd step prompt.vars carry the presented (unreduced) fraction, key "fraction_simpl.step.gcd"', () => {
+    const task = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task.steps[0].prompt.key).toBe('fraction_simpl.step.gcd');
+    const vars = task.steps[0].prompt.vars ?? {};
+    expect('num' in vars).toBe(true);
+    expect('den' in vars).toBe(true);
+  });
+
+  it('same seed + gcd-scaffold difficulty → identical GeneratedTask (reproducibility)', () => {
+    const task1 = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(7));
+    const task2 = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(7));
+    expect(task1).toEqual(task2);
+  });
+
+  it('elicitFromMastery propagated to all 3 steps', () => {
+    const task = fractionSimplification.generate(GCD_SCAFFOLD_DIFFICULTY, createSeededRng(FIXED_SEED));
+    for (const step of task.steps) {
+      expect(step.elicitFromMastery).toBe(GCD_SCAFFOLD_DIFFICULTY.elicitFromMastery);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: bands without includeGcdStep are unaffected by the enhancement
+// ---------------------------------------------------------------------------
+
+describe('fractionSimplification — regression: includeGcdStep-less bands unchanged', () => {
+  it('concrete/pictorial/abstract difficulties (no includeGcdStep) still emit exactly 2 steps', () => {
+    for (const difficulty of [CONCRETE_DIFFICULTY, PICTORIAL_DIFFICULTY, ABSTRACT_DIFFICULTY]) {
+      const task = fractionSimplification.generate(difficulty, createSeededRng(FIXED_SEED));
+      expect(task.steps).toHaveLength(2);
+      expect(task.steps[0].prompt.key).toContain('numerator');
+      expect(task.steps[1].prompt.key).toContain('denominator');
+    }
+  });
+
+  it('concrete band (maxDenominator 4, maxFactor 2) is unchanged for FIXED_SEED (byte-identical to pre-enhancement behavior)', () => {
+    const task = fractionSimplification.generate(CONCRETE_DIFFICULTY, createSeededRng(FIXED_SEED));
+    expect(task).toMatchInlineSnapshot(`
+{
+  "problem": {
+    "prompt": {
+      "key": "fraction_simpl.problem",
+      "vars": {
+        "den": 6,
+        "num": 2,
+      },
+    },
+    "representation": "concrete",
+  },
+  "representation": "concrete",
+  "skillNode": "fraction-simplification",
+  "solution": "1/3",
+  "steps": [
+    {
+      "elicitFromMastery": 0,
+      "expected": "1",
+      "inputMode": "manipulative",
+      "normalizationPolicy": {
+        "decimalForm": "standard",
+        "lowestTerms": false,
+        "numberClass": "integer",
+        "ordering": "n/a",
+      },
+      "prompt": {
+        "key": "fraction_simpl.step.numerator",
+        "vars": {
+          "den": 6,
+          "num": 2,
+        },
+      },
+      "skillNode": "fraction-simplification",
+    },
+    {
+      "elicitFromMastery": 0,
+      "expected": "3",
+      "inputMode": "manipulative",
+      "normalizationPolicy": {
+        "decimalForm": "standard",
+        "lowestTerms": false,
+        "numberClass": "integer",
+        "ordering": "n/a",
+      },
+      "prompt": {
+        "key": "fraction_simpl.step.denominator",
+        "vars": {
+          "den": 6,
+          "num": 2,
+        },
+      },
+      "skillNode": "fraction-simplification",
+    },
+  ],
+}
+`);
   });
 });
 

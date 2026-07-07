@@ -18,12 +18,19 @@
  *     🍎 × 3 = 12        find 🍎  → 4
  *     🍎 + 🍌 = 6        find 🍌  → 2   (using the 🍎 just found)
  *
+ *   Three unknowns (a triangular 3-equation chain → division, then two
+ *   subtractions; high-mastery band only). Each equation pins EXACTLY one new
+ *   fruit, solved strictly top-to-bottom:
+ *     🍎 × 3 = 12        find 🍎  → 4
+ *     🍎 + 🍌 = 6        find 🍌  → 2   (using the 🍎 just found)
+ *     🍌 + 🍒 = 9        find 🍒  → 7   (using the 🍌 just found)
+ *
  *   Every task has exactly ONE answer per fruit that the learner can actually
  *   deduce — never underdetermined. The coefficient is drawn ≥ 2 so the one-
  *   fruit case is genuine arithmetic (never the degenerate 🍎 = total).
  *
  * BAND PARAMS (`params: { unknowns: number; range: number; negatives: boolean }`):
- *   - unknowns: how many distinct fruit types are solved for (1 or 2).
+ *   - unknowns: how many distinct fruit types are solved for (1, 2, or 3).
  *   - range: each fruit value is drawn from [1, range] (or [-range, range] if negatives).
  *     When negatives is true, the sign is drawn uniformly; zero is excluded.
  *   - negatives: whether drawn fruit values may be negative.
@@ -31,6 +38,8 @@
  * STEPS (one per unknown, in solving order):
  *   For unknowns === 1: one step ("what is 🍎?").
  *   For unknowns === 2: two ordered steps ("what is 🍎?", then "what is 🍌?").
+ *   For unknowns === 3: three ordered steps ("what is 🍎?", "what is 🍌?", then
+ *     "what is 🍒?") — the triangular chain, each equation pinning one new fruit.
  *   Each step.expected is canonicalize(fruitValue) — never ad-hoc formatted.
  *   Each step carries SCALAR_DECIMAL_POLICY so the stage-03 checker reads the
  *   identical policy off the same Step object (DL-3; divergence impossible).
@@ -69,7 +78,7 @@ import { canonicalize, SCALAR_DECIMAL_POLICY } from '@/core/canonical';
  * Carried in Band.params (typed `unknown` at the core level; narrowed here).
  */
 interface FruitBandParams {
-  /** Number of distinct fruit types solved for: 1 or 2. */
+  /** Number of distinct fruit types solved for: 1, 2, or 3. */
   readonly unknowns: number;
   /** Draw range: fruit values drawn from [1..range] (or negatives). */
   readonly range: number;
@@ -117,22 +126,27 @@ const MAX_COEFF = 3;
  *
  * Equations (backward-constructed from the drawn fruit values):
  *   coeffA × apple = total1        (always present)
- *   apple + banana = total2        (only when unknowns === 2)
+ *   apple + banana = total2        (unknowns === 2 or 3)
+ *   banana + cherry = total3       (only when unknowns === 3)
  */
 interface FruitConcreteParams {
   readonly representationLevel: 'concrete' | 'pictorial' | 'abstract';
-  /** How many fruits are solved for: 1 or 2. */
-  readonly unknowns: 1 | 2;
+  /** How many fruits are solved for: 1, 2, or 3. */
+  readonly unknowns: 1 | 2 | 3;
   /** The value of 🍎 — the answer to step 1. */
   readonly apple: number;
   /** Coefficient in equation 1: coeffA × apple = total1 (≥ 2). */
   readonly coeffA: number;
   /** Right-hand side of equation 1 (= coeffA * apple). */
   readonly total1: number;
-  /** The value of 🍌 — the answer to step 2 (unknowns === 2 only). */
+  /** The value of 🍌 — the answer to step 2 (unknowns === 2 or 3). */
   readonly banana?: number;
-  /** Right-hand side of equation 2 (= apple + banana; unknowns === 2 only). */
+  /** Right-hand side of equation 2 (= apple + banana; unknowns === 2 or 3). */
   readonly total2?: number;
+  /** The value of 🍒 — the answer to step 3 (unknowns === 3 only). */
+  readonly cherry?: number;
+  /** Right-hand side of equation 3 (= banana + cherry; unknowns === 3 only). */
+  readonly total3?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,9 +177,10 @@ function drawValue(range: number, negatives: boolean, rng: SeededRng): number {
  * Reads the band's `params` to determine the task shape, then draws concrete
  * fruit values from `rng` FIRST (backward generation) and derives the equation
  * totals from them. The system is triangular and always uniquely solvable:
- * equation 1 fixes 🍎 (division), equation 2 fixes 🍌 given 🍎 (subtraction).
+ * equation 1 fixes 🍎 (division), equation 2 fixes 🍌 given 🍎 (subtraction),
+ * equation 3 (unknowns === 3 only) fixes 🍒 given 🍌 (subtraction).
  *
- * Draw order (fixed for reproducibility): apple, coeffA, [banana].
+ * Draw order (fixed for reproducibility): apple, coeffA, [banana], [cherry].
  *
  * @param band - The selected difficulty band (opaque params narrowed here).
  * @param rng  - Seeded PRNG; all randomness flows through this.
@@ -174,18 +189,29 @@ function drawValue(range: number, negatives: boolean, rng: SeededRng): number {
 function instantiate(band: Band, rng: SeededRng): FruitConcreteParams {
   const p = narrowBandParams(band.params);
 
-  // Clamp unknowns to the supported 1..2 range.
-  const unknowns = (Math.min(Math.max(1, p.unknowns), 2)) as 1 | 2;
+  // Clamp unknowns to the supported 1..3 range.
+  const unknowns = (Math.min(Math.max(1, p.unknowns), 3)) as 1 | 2 | 3;
 
   // Draw 🍎 (the answer) and the coefficient; derive equation-1 total.
   const apple = drawValue(p.range, p.negatives, rng);
   const coeffA = rng.nextInt(MIN_COEFF, MAX_COEFF);
   const total1 = coeffA * apple;
 
+  if (unknowns === 1) {
+    return {
+      representationLevel: band.representationLevel,
+      unknowns,
+      apple,
+      coeffA,
+      total1,
+    };
+  }
+
+  // Draw 🍌 (the answer) and derive equation-2 total (🍎 + 🍌).
+  const banana = drawValue(p.range, p.negatives, rng);
+  const total2 = apple + banana;
+
   if (unknowns === 2) {
-    // Draw 🍌 (the answer) and derive equation-2 total (🍎 + 🍌).
-    const banana = drawValue(p.range, p.negatives, rng);
-    const total2 = apple + banana;
     return {
       representationLevel: band.representationLevel,
       unknowns,
@@ -197,12 +223,20 @@ function instantiate(band: Band, rng: SeededRng): FruitConcreteParams {
     };
   }
 
+  // unknowns === 3: draw 🍒 (the answer) and derive equation-3 total (🍌 + 🍒).
+  const cherry = drawValue(p.range, p.negatives, rng);
+  const total3 = banana + cherry;
+
   return {
     representationLevel: band.representationLevel,
     unknowns,
     apple,
     coeffA,
     total1,
+    banana,
+    total2,
+    cherry,
+    total3,
   };
 }
 
@@ -235,8 +269,8 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
 
   const makeStep = (key: string, recapKey: string, value: number): Step => ({
     prompt: { key },
-    // recap: a short fruit label so a two-fruit task can show the already-solved
-    // fruit (e.g. "🍎 = 2") while the learner works the second fruit.
+    // recap: a short fruit label so a multi-fruit task can show the already-solved
+    // fruit(s) (e.g. "🍎 = 2") while the learner works a later fruit.
     recap: { key: recapKey },
     inputMode,
     // expected is the canonical string of the pre-chosen fruit value.
@@ -247,34 +281,54 @@ function generate(difficulty: DifficultyParams, rng: SeededRng): GeneratedTask {
     normalizationPolicy: SCALAR_DECIMAL_POLICY,
   });
 
-  // Ordered steps, in solving order: 🍎 first (equation 1), then 🍌 (equation 2).
+  // Ordered steps, in solving order: 🍎 first (equation 1), then 🍌 (equation 2),
+  // then 🍒 (equation 3, unknowns === 3 only) — the triangular chain.
   const steps: Step[] = [makeStep('fruit_eq.step.apple', 'fruit_eq.recap.apple', concrete.apple)];
-  if (concrete.unknowns === 2) {
+  if (concrete.unknowns === 2 || concrete.unknowns === 3) {
     steps.push(makeStep('fruit_eq.step.banana', 'fruit_eq.recap.banana', concrete.banana as number));
+  }
+  if (concrete.unknowns === 3) {
+    steps.push(makeStep('fruit_eq.step.cherry', 'fruit_eq.recap.cherry', concrete.cherry as number));
   }
 
   // Problem prompt: carries the numeric coefficients/totals so the presentation
   // layer renders the actual equation(s). NEVER the answer values themselves.
-  const problemPrompt: LocalizedRef =
-    concrete.unknowns === 1
-      ? {
-          key: 'fruit_eq.problem.unknowns_1',
-          vars: { coeff: concrete.coeffA, total: concrete.total1 },
-        }
-      : {
-          key: 'fruit_eq.problem.unknowns_2',
-          vars: {
-            coeffA: concrete.coeffA,
-            total1: concrete.total1,
-            total2: concrete.total2 as number,
-          },
-        };
+  let problemPrompt: LocalizedRef;
+  if (concrete.unknowns === 1) {
+    problemPrompt = {
+      key: 'fruit_eq.problem.unknowns_1',
+      vars: { coeff: concrete.coeffA, total: concrete.total1 },
+    };
+  } else if (concrete.unknowns === 2) {
+    problemPrompt = {
+      key: 'fruit_eq.problem.unknowns_2',
+      vars: {
+        coeffA: concrete.coeffA,
+        total1: concrete.total1,
+        total2: concrete.total2 as number,
+      },
+    };
+  } else {
+    problemPrompt = {
+      key: 'fruit_eq.problem.unknowns_3',
+      vars: {
+        coeffA: concrete.coeffA,
+        total1: concrete.total1,
+        total2: concrete.total2 as number,
+        total3: concrete.total3 as number,
+      },
+    };
+  }
 
   // solution = the canonical sum of the answers the learner produces (🍎, or
-  // 🍎 + 🍌). Used only as `correctAnswer` in the explanation context; the
-  // checker verifies each step against step.expected, not this field.
+  // 🍎 + 🍌, or 🍎 + 🍌 + 🍒). Used only as `correctAnswer` in the explanation
+  // context; the checker verifies each step against step.expected, not this field.
   const solutionValue =
-    concrete.unknowns === 1 ? concrete.apple : concrete.apple + (concrete.banana as number);
+    concrete.unknowns === 1
+      ? concrete.apple
+      : concrete.unknowns === 2
+        ? concrete.apple + (concrete.banana as number)
+        : concrete.apple + (concrete.banana as number) + (concrete.cherry as number);
   const solution = canonicalize(solutionValue);
 
   return {

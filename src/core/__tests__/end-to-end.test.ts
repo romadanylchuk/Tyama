@@ -12,7 +12,8 @@
  * Tests:
  *   - loadGraph() returns a valid, fixture-flagged graph.
  *   - validateGraph() does not throw on the fixture.
- *   - resolveAvailability(): fruit-equations is 'available', prereqs are 'coming-soon'.
+ *   - resolveAvailability(): fruit-equations and its prereqs are all 'available'
+ *     (every fixture node is generator-backed as of graphVersion 0.2.1).
  *   - selectBand() picks the correct band for a given coordinate.
  *   - getGenerator('fruit-equations').generate() produces a GeneratedTask.
  *   - Same seed + same band → byte-identical task (reproducibility invariant).
@@ -43,9 +44,9 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('End-to-end: graph loading', () => {
-  it('loadGraph() returns a GraphDefinition with graphVersion 0.2.0 and fixture: true', () => {
+  it('loadGraph() returns a GraphDefinition with graphVersion 0.2.1 and fixture: true', () => {
     const graph = loadGraph();
-    expect(graph.graphVersion).toBe('0.2.0');
+    expect(graph.graphVersion).toBe('0.2.1');
     expect(graph.fixture).toBe(true);
   });
 
@@ -73,20 +74,20 @@ describe('End-to-end: availability resolution', () => {
     expect(fruitEntry!.status).toBe('available');
   });
 
-  it('resolveAvailability marks addition-within-20 as coming-soon', () => {
+  it('resolveAvailability marks addition-within-20 as available', () => {
     const graph = loadGraph();
     const availability = resolveAvailability(graph);
     const entry = availability.find((a) => a.nodeId === 'addition-within-20');
     expect(entry).toBeDefined();
-    expect(entry!.status).toBe('coming-soon');
+    expect(entry!.status).toBe('available');
   });
 
-  it('resolveAvailability marks unknown-as-missing-addend as coming-soon', () => {
+  it('resolveAvailability marks unknown-as-missing-addend as available', () => {
     const graph = loadGraph();
     const availability = resolveAvailability(graph);
     const entry = availability.find((a) => a.nodeId === 'unknown-as-missing-addend');
     expect(entry).toBeDefined();
-    expect(entry!.status).toBe('coming-soon');
+    expect(entry!.status).toBe('available');
   });
 
   it('no shaming vocabulary in any availability status', () => {
@@ -127,11 +128,18 @@ describe('End-to-end: selectBand on fruit-equations node', () => {
     expect(band.minCoordinate).toBe(0.7);
   });
 
+  it('coordinate 0.85 → cherry-tier band (minCoordinate 0.85)', () => {
+    const graph = loadGraph();
+    const fruitNode = graph.nodes.find((n) => n.id === 'fruit-equations')!;
+    const band = selectBand(0.85, fruitNode.difficultyHooks.bands);
+    expect(band.minCoordinate).toBe(0.85);
+  });
+
   it('coordinate 1.0 → hard band (top band)', () => {
     const graph = loadGraph();
     const fruitNode = graph.nodes.find((n) => n.id === 'fruit-equations')!;
     const band = selectBand(1.0, fruitNode.difficultyHooks.bands);
-    expect(band.minCoordinate).toBe(0.7);
+    expect(band.minCoordinate).toBe(0.85);
   });
 });
 
