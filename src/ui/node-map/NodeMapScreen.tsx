@@ -10,6 +10,9 @@
  *   - `useMotivation()` (Phase 4, refreshed on mount) — the streak/XP chrome.
  *   - `MasteryRing` (Phase 4) — one ring per node.
  *   - `useT()` / `useTheme()` — every label resolves via the i18n seam.
+ *   - `pickSelfCheckNode` (@/navigation) — the staleness-weighted draw behind
+ *     the voluntary "Перевір себе" button (visible once ≥1 node is mastered);
+ *     launches through the ordinary `onSelectNode` path.
  *
  * ANTI-SHAME:
  *   `'not-yet-open'` nodes render muted and INERT (no `onPress`, no padlock,
@@ -24,13 +27,16 @@
  *   relayout of the node grid above it. No companion is rendered here.
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import type { NodeId } from '@/core/types';
 import { loadGraph } from '@/core/graph/load-graph';
 import { resolveAvailability } from '@/core/generators/registry';
 import { resolveMasteryConfig } from '@/core/mastery/mastery-config';
+import { createSeededRng } from '@/core/rng/seeded-rng';
+import { pickSelfCheckNode, type SelfCheckCandidate } from '@/navigation';
+import { getProgress, appendFirehose } from '@/repositories';
 import { useTheme } from '@/theme';
 import { useT } from '@/i18n';
 import { nodeDisplayName } from '@/i18n/node-name';
@@ -56,6 +62,13 @@ export interface NodeMapScreenProps {
    * to them at session start feels random to the learner.
    */
   readonly dueNodeIds?: ReadonlySet<NodeId>;
+  /**
+   * The node of the most recent task session (tracked by AppShell). The
+   * self-check pick excludes it so leaving a theme and pressing the button
+   * always yields a different one — unless it is the ONLY mastered node, in
+   * which case a repeat beats a dead button.
+   */
+  readonly lastVisitedNodeId?: NodeId | null;
 }
 
 const ROW_HEIGHT = 96;
@@ -69,6 +82,7 @@ export function NodeMapScreen({
   onSelectNode,
   recommendedNodeId,
   dueNodeIds,
+  lastVisitedNodeId,
 }: NodeMapScreenProps): React.JSX.Element {
   const { tokens } = useTheme();
   const t = useT();
@@ -82,6 +96,67 @@ export function NodeMapScreen({
     [graph]
   );
   const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n] as const)), [graph]);
+
+  // The self-check candidate pool: every node whose ring is 'mastered' (same
+  // predicate as the tiles below). useMastery refreshes on durable events, so
+  // the button appears/updates on its own after each session.
+  const masteredNodeIds = useMemo(
+    () =>
+      graph.nodes
+        .filter((node) => {
+          const availability = availabilityByNode.get(node.id) ?? 'coming-soon';
+          const aggregate = mastery.aggregates.get(node.id) ?? 0;
+          return (
+            deriveRingState(
+              aggregate,
+              availability,
+              resolveMasteryConfig(node),
+              mastery.abstractAttempts.get(node.id) ?? 0
+            ).state === 'mastered'
+          );
+        })
+        .map((node) => node.id),
+    [graph, availabilityByNode, mastery.aggregates, mastery.abstractAttempts]
+  );
+
+  // Voluntary retrieval practice: pick a mastered node weighted toward the
+  // ones practiced longest ago (staleness read at press time so it is never a
+  // stale mount snapshot), then launch it through the ordinary onSelectNode
+  // path — the full session pipeline (mastery/XP/SR) applies unchanged.
+  const selfCheckInFlight = useRef(false);
+  const handleSelfCheck = useCallback((): void => {
+    if (selfCheckInFlight.current) return;
+    selfCheckInFlight.current = true;
+    void (async (): Promise<void> => {
+      // Never re-serve the theme the learner just left — unless it is the only
+      // mastered one (a repeat beats a dead button).
+      const pool =
+        masteredNodeIds.length > 1
+          ? masteredNodeIds.filter((id) => id !== lastVisitedNodeId)
+          : masteredNodeIds;
+      const now = Date.now();
+      let candidates: SelfCheckCandidate[];
+      try {
+        const rows = await Promise.all(
+          pool.map(async (nodeId) => ({ nodeId, row: await getProgress(nodeId) }))
+        );
+        candidates = rows.map(({ nodeId, row }) => ({
+          nodeId,
+          // Defensive: a mastered node always has a row; a missing one reads
+          // maximally stale rather than being dropped.
+          staleSinceMs: now - (row?.updatedAt ?? 0),
+        }));
+      } catch {
+        // Calm degradation: equal staleness = uniform pick; the tap never dies.
+        candidates = pool.map((nodeId) => ({ nodeId, staleSinceMs: 0 }));
+      }
+      const picked = pickSelfCheckNode(candidates, createSeededRng(now));
+      selfCheckInFlight.current = false;
+      if (picked === null) return;
+      appendFirehose('self_check_started', { nodeId: picked }).catch(() => {});
+      onSelectNode(picked);
+    })();
+  }, [masteredNodeIds, lastVisitedNodeId, onSelectNode]);
 
   const rows = useMemo(() => {
     const byRow = new Map<number, NodeLayoutEntry[]>();
@@ -109,6 +184,18 @@ export function NodeMapScreen({
         <Text style={{ color: tokens.color.textSecondary }}>
           {t({ key: 'task.xpEarned', vars: { xp: motivation.xp } })}
         </Text>
+        {masteredNodeIds.length > 0 ? (
+          <TouchableOpacity
+            style={[styles.selfCheckButton, { borderColor: tokens.color.accent }]}
+            onPress={handleSelfCheck}
+            accessibilityRole="button"
+            testID="node-map-self-check"
+          >
+            <Text style={[styles.selfCheckLabel, { color: tokens.color.accent }]}>
+              {t({ key: 'nav.selfCheck' })}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {rows.map(([row, entries]) => (
@@ -226,6 +313,18 @@ const styles = StyleSheet.create({
   },
   tileBadge: {
     fontSize: 11,
+    fontWeight: '600',
+  },
+  selfCheckButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  selfCheckLabel: {
+    fontSize: 13,
     fontWeight: '600',
   },
   companionSlot: {

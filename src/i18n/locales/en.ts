@@ -245,6 +245,7 @@ const en: CatalogResource = {
   'nav.back': 'Back',
   'nav.recommended': '⭐ Recommended',
   'nav.reviewDue': '🔄 Time to review',
+  'nav.selfCheck': '✨ Check yourself',
 
   // -------------------------------------------------------------------------
   // task.* — Task-screen chrome (ordinary)

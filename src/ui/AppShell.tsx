@@ -142,6 +142,19 @@ function AppShellContent(): React.JSX.Element {
   // exactly once) keeps AntiLoopMemory/diagnosticDebt session-scoped without
   // reading a ref during render (react-hooks/refs).
   const [controller] = useState(() => new SessionController({ graph: loadGraph() }));
+  // The node of the most recent task session (any launch path). The node map's
+  // self-check pick excludes it so "leave a theme, press the button" always
+  // surprises with a DIFFERENT mastered theme when more than one exists.
+  const [lastTaskNodeId, setLastTaskNodeId] = useState<NodeId | null>(null);
+
+  // Single transition point for screens that may be a task — records the task
+  // node alongside the screen switch (both setStates batch in one render).
+  const showScreen = useCallback((next: Screen): void => {
+    if (next.kind === 'task') {
+      setLastTaskNodeId(next.nodeId);
+    }
+    setScreen(next);
+  }, []);
 
   useEffect(() => {
     if (screen.kind !== 'node-map') return;
@@ -217,33 +230,33 @@ function AppShellContent(): React.JSX.Element {
 
       const next = await resolveMainLoopScreen();
       if (!cancelled) {
-        setScreen(next);
+        showScreen(next);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [resolveMainLoopScreen]);
+  }, [resolveMainLoopScreen, showScreen]);
 
   const handleSelectNode = useCallback((nodeId: NodeId): void => {
-    setScreen({ kind: 'task', nodeId });
-  }, []);
+    showScreen({ kind: 'task', nodeId });
+  }, [showScreen]);
 
   const handleExit = useCallback((): void => {
     setScreen({ kind: 'node-map' });
   }, []);
 
   const handleNavigate = useCallback((nodeId: NodeId): void => {
-    setScreen({ kind: 'task', nodeId });
-  }, []);
+    showScreen({ kind: 'task', nodeId });
+  }, [showScreen]);
 
   const handleOnboardingComplete = useCallback((): void => {
     void (async (): Promise<void> => {
       const next = await resolveMainLoopScreen();
-      setScreen(next);
+      showScreen(next);
     })();
-  }, [resolveMainLoopScreen]);
+  }, [resolveMainLoopScreen, showScreen]);
 
   if (screen.kind === 'loading') {
     // Calm loading chrome — resolved via the same i18n seam as every other screen.
@@ -260,6 +273,7 @@ function AppShellContent(): React.JSX.Element {
         onSelectNode={handleSelectNode}
         recommendedNodeId={mapGuidance.recommended}
         dueNodeIds={mapGuidance.due}
+        lastVisitedNodeId={lastTaskNodeId}
       />
     );
   }

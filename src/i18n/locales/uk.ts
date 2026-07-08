@@ -337,6 +337,8 @@ const uk: CatalogResource = {
   // Map guidance: the engine's proposed next node + due spaced-repetition reviews.
   'nav.recommended': '⭐ Рекомендуємо',
   'nav.reviewDue': '🔄 Час повторити',
+  // Voluntary retrieval practice: a random already-mastered node (calm invitation).
+  'nav.selfCheck': '✨ Перевір себе',
 
   // -------------------------------------------------------------------------
   // task.* — Task-screen chrome (ordinary)
